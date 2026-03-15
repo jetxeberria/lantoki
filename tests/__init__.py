@@ -1,0 +1,1 @@
+"""lantoki tests root module."""

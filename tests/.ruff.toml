@@ -1,0 +1,16 @@
+line-length = 130
+
+[lint]
+
+select = [
+    "E", # pycodestyle
+    "F", # pyflakes
+    "B", # flake8-bugbear 
+    "PT" # flake8-pytest
+]
+
+unfixable = [
+    "B" # flake8-bugbear
+]
+
+task-tags = ["TODO","FIXME","XXX"]
