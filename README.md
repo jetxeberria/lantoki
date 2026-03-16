@@ -4,17 +4,11 @@
 
 - Install [just](https://github.com/casey/just#installation)
 - Install [uv](https://docs.astral.sh/uv/)
-- Copy `.env.example` to `.env` and fill in your credentials
-
-Optional:
-
-- Install [direnv](https://direnv.net/)
-- Run `direnv allow` for automatic environment activation
 
 ## Quickstart
 
 ```bash
-# Set environment (run manually if direnv is not used)
+# Set environment
 just env-lock
 just env-sync
 
@@ -30,8 +24,5 @@ just env-add --group docs mkdocs-material-extensions
 # Development workflow
 just docs            # Generate documentation
 just test            # Run all test and coverage
-just run
 
-# Production
-just dist            # Test generating a distributable
 ```

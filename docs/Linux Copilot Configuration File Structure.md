@@ -3,13 +3,13 @@ This structure divides your central sync repository into two clear domains: **Us
 
 ### ---
 
-**1\. Your Central Sync Repository (my-copilot-sync-repo/)**
+**1\. Your Central Sync Repository (lantoki/)**
 
 This is the repository you will push to GitHub/GitLab to sync your configurations across your Linux machines.
 
 Plaintext
 
-my-copilot-sync-repo/  
+lantoki/  
 │  
 ├── user-level/                      \# Global configurations for your Linux profile  
 │   │  
@@ -51,7 +51,7 @@ my-copilot-sync-repo/
 
 **2\. How the Symlinks Map to Your Linux Filesystem**
 
-When you clone your sync repository to a new Linux machine (e.g., \~/my-copilot-sync-repo), your initialization script will create symlinks pointing from the system/project locations *to* your synced repository.
+When you clone your sync repository to a new Linux machine (e.g., \~/lantoki), your initialization script will create symlinks pointing from the system/project locations *to* your synced repository.
 
 #### **User-Level Symlink Targets (Global Settings)**
 

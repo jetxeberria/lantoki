@@ -16,7 +16,8 @@ classifiers = [
 ]
 
 dependencies = [
-    "typer[all]"
+    "structlog>=25.5.0",
+    "typer[all]",
 ]
 
 [project.urls]
