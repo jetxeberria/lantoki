@@ -1,40 +1,59 @@
 ---
 name: python-engineering-standards
-description: Enforce PEP8, Idiomatic Python, and SOLID principles.
+description: Enforce PEP8, Idiomatic Python, SOLID and Clean Code principles.
 applyTo: "**/*.py"
 ---
 # Python Programming Standards
 
-## I. Naming, Formatting & Tooling
-- **Naming:** `snake_case` for variables/functions/methods; `PascalCase` for classes; `UPPER_SNAKE_CASE` for constants (however, constants should be avoided for testing purposes).
-- **Formatting:** Follow ruff defaults or customized rules if present. Use `ruff check --fix` to automatically apply safe formatting fixes.
-- **Automation:** Use **Ruff** for automated formatting consistency.
+## I. Naming, Formatting & Tooling (Strict Consistency)
 
-## II. Idiomatic & Pythonic Code
-- **Resources:** Always use the `with` statement for files, network connections, or locks.
-- **Comprehensions:** Use list/dict/set comprehensions for simple loops. Use standard `for` loops for complex nested logic.
-- **Iteration:** Use `enumerate()` for index+value and `zip()` for simultaneous iteration.
-- **Strings:** Use f-strings (`f"..."`) for all string formatting.
+* Naming Conventions: snake\_case for variables/functions; PascalCase for classes; UPPER\_SNAKE\_CASE for constants. Constants must be avoided when possible; prefer configuration via environment variables or config files.
+* Explicit Naming: \- Intent over Implementation: Name by *what* it represents, not its type (e.g., user\_list \-\> active\_subscribers).
+  * Avoid Generic Terms: Prohibit "Manager," "Data," or "Info."
+  * Searchability: Use names unique enough to be found easily via global search.
+* Automation: Use Ruff for automated formatting (ruff check \--fix). Consistency is more important than personal preference.
 
-## III. Reliability & Maintenance
-- **Logging Implementation:** - Stop using `print()` for debugging; use the `structlog` module.
-    - **Enforce Contextual Logging:** All dynamic data (ids, timestamps, status codes) MUST be passed as structured keyword fields.
-    - **Prohibited:** `logger.info(f"User {id} logged in")` (Interpolation is forbidden).
-    - **Required:** `logger.info("user_logged_in", user_id=id)`.
-- **Exceptions:** Catch specific exceptions; never use a bare `except:`.
-- **Exceptions:** Every exception must be logged, showing the traceback.
-- **Typing:** Use Type Hints to improve readability and allow static type checking.
-- **Documentation:** Write meaningful PEP 257 docstrings explaining the *why* and *what*.
-- **DRY:** Abstract code into functions/classes if a block is repeated three times.
-- **Complexity:** Use "early return" (guard clauses) to avoid deep nesting.
+## II. Logic & Structure
 
-## IV. SOLID Principles
-- **SRP:** A class/function must have only one reason to change.
-- **OCP:** Open for extension, closed for modification (use inheritance/ABCs).
-- **LSP:** Subclasses must be swappable for parents without breaking behavior.
-- **ISP:** Use specific `typing.Protocol` or focused ABCs rather than "god-classes."
-- **DIP:** Depend on abstractions; pass dependencies via `__init__`.
+* Single Responsibility (SRP): \- A function or class must have only one reason to change.
+  * The "And" Test: If describing a function's purpose requires the word "and," it must be split.
+* Fail Fast & Complexity:
+  * Guard Clauses: Handle invalid states and errors at the start of functions to avoid deep if/else nesting.
+  * Early Return: Exit the function as soon as the result is determined.
+* Abstraction Balance:
+  * DRY (Don't Repeat Yourself): Abstract logic used in 3+ places.
+  * AHA (Avoid Hasty Abstractions): Prefer minor duplication over a rigid, complex abstraction that is difficult to modify.
 
-## V. Security & Imports
-- **Secrets:** Never hardcode secrets. Use environment variables or `.env` files.
-- **Imports:** Always prefer absolute imports over relative imports.
+## III. Idiomatic & Pythonic Code
+
+* Resources: Always use the with statement for files, network connections, or locks.
+* Comprehensions: Use list/dict/set comprehensions for simple loops. Use standard for loops for complex nested logic.
+* Iteration: Use enumerate() for index+value and zip() for simultaneous iteration.
+* Strings: Use f-strings (f"...") for all string formatting.
+
+## IV. Reliability, Documentation & Maintenance
+
+* Purposeful Commenting:
+  * Code for "How": If logic is complex, refactor it into well-named variables/functions instead of explaining it.
+  * Comments for "Why": Use PEP 257 docstrings and comments to explain business logic, constraints, or non-obvious decisions.
+* Logging Implementation:
+  * Use structlog. Never use print() for debugging.
+  * Enforce Contextual Logging: Pass dynamic data (IDs, status codes) as structured keyword fields.
+  * *Prohibited:* logger.info(f"User {id} logged in").
+  * *Required:* logger.info("user\_logged\_in", user\_id=id).
+* Exceptions: Catch specific exceptions; never use a bare except:. Every exception must be logged with its traceback.
+* Typing: Use Type Hints for readability and static type checking.
+* The Boy Scout Rule: Leave every file slightly better than you found it (e.g., fixing a typo, renaming a vague variable, or removing dead code).
+
+## V. SOLID Principles
+
+* SRP: (See Section II).
+* OCP: Open for extension, closed for modification (use inheritance/ABCs).
+* LSP: Subclasses must be swappable for parents without breaking behavior.
+* ISP: Use specific typing.Protocol or focused ABCs rather than "god-classes."
+* DIP: Depend on abstractions; pass dependencies via \_\_init\_\_.
+
+## VI. Security & Imports
+
+* Secrets: Never hardcode secrets. Use environment variables or .env files.
+* Imports: Always prefer absolute imports over relative imports.
