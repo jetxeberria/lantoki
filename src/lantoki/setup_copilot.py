@@ -72,9 +72,7 @@ def safe_link(src: Path, dest: Path) -> None:
                 skipped_items.append(f"[Already Linked] {dest}")
                 LOGGER.info("already_linked", source=str(src), destination=str(dest))
             else:
-                skipped_items.append(
-                    f"[Conflict] {dest} (A file or different symlink already exists)"
-                )
+                skipped_items.append(f"[Conflict] {dest} (A file or different symlink already exists)")
                 LOGGER.warning("link_conflict", source=str(src), destination=str(dest))
         except OSError:
             skipped_items.append(f"[Conflict] {dest} (Failed to inspect existing target)")
@@ -198,9 +196,7 @@ def setup_repo(sync_root: Path, target_repo: Path) -> None:
 
 def parse_args() -> argparse.Namespace:
     """Parse CLI arguments for user-level or repo-level setup."""
-    parser = argparse.ArgumentParser(
-        description="Link Copilot instruction files for user-level or repo-level setup."
-    )
+    parser = argparse.ArgumentParser(description="Link Copilot instruction files for user-level or repo-level setup.")
     subparsers = parser.add_subparsers(dest="mode", required=True)
 
     subparsers.add_parser("user", help="Links global user-level configs")

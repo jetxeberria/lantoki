@@ -109,9 +109,7 @@ def test_repo_mode_creates_expected_repo_symlinks(setup_paths: dict[str, Path]) 
     target_repo = setup_paths["target_repo"]
 
     # Answer "y" for every interactive prompt so all optional links are created.
-    prompt_count = len(
-        list((sync_root / "project-level" / "scoped-instructions").glob("*.instructions.md"))
-    )
+    prompt_count = len(list((sync_root / "project-level" / "scoped-instructions").glob("*.instructions.md")))
     prompt_count += len(list((sync_root / "project-level" / "project-prompts").glob("*.prompt.md")))
     prompt_count += len(_skill_dirs(sync_root))
     user_input = ("y\n" * prompt_count) if prompt_count else None
