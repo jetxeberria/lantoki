@@ -1,0 +1,19 @@
+{
+  "servers": {
+    "python-verification-gate": {
+      "type": "stdio",
+      "command": "uv",
+      "args": [
+        "run",
+        "--quiet",
+        "--no-project",
+        "--with",
+        "mcp>=1.11.0",
+        "python",
+        "-u",
+        "/home/jetxeberria/projects/test_repositories/lantoki/src/lantoki/python_verification_gate.py"
+      ]
+    }
+},
+  "inputs": []
+}
