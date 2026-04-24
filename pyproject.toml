@@ -109,14 +109,8 @@ task-tags=[
     "WARN"
 ]
 ignore = [
-    "FBT001",   # boolean-type-hint-positional-argument
-    "FBT002",   # boolean-default-value-positional-argument
     "PLR0913",  # too-many-arguments
-    "D104",     # undocumented-public-package
-    "D205",     # missing-blank-line-after-summary
     "TD003",    # missing-todo-link
-    "FIX002",   # line-contains-todo
-    "COM812",   # missing-trailing-comma
 ]
 
 [tool.ruff.lint.isort]
