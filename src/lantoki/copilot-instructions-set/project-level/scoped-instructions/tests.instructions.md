@@ -6,7 +6,9 @@ description: Rules for writing unit tests using Pytest.
 
 ## I. Organization and File Structure
 * **Rule 1: Standardize file location and naming.** Name all test files following the `test_*.py` pattern. Place them inside a `tests` directory located at the exact same level as the source code being tested.
+* **Rule 1.1: Enforce dedicated pairing for boundary modules.** Every `config.py` must have a `test_config.py`, and every `exceptions.py` must have a `test_exceptions.py` in the corresponding tests scope.
 * **Rule 2: Organize shared setups logically.** Place global fixtures, hooks, and setups applicable to all tests in a `conftest.py` file at the root of the `tests` directory. If you have utilities or fixtures specific to a certain group of tests, isolate them within a `helpers/` directory.
+* **Rule 3: Group all imports at file top.** Avoid importing inside test functions. Use absolute imports for clarity and consistency.
 
 ---
 
@@ -19,7 +21,8 @@ description: Rules for writing unit tests using Pytest.
 
 ## III. Test Design and Execution
 * **Rule 6: Test only the public interface.** Never call private methods or functions directly. Validate all internal logic, edge cases, and setups exclusively through the module's public API. This maintains encapsulation and prevents your tests from becoming tightly coupled to implementation details.
-* **Rule 7: Guarantee isolation and determinism.** Tests must be independent, fast, and repeatable. They must never share state, assume the presence of resources created by other tests, or rely on external timing factors that could introduce flakiness. 
+* **Rule 6.1: Validate exception contract invariants.** For each bounded context, tests must verify that every custom exception inherits from the controlled base custom exception and that base-shared behavior (such as structured self-logging) is triggered.
+* **Rule 7: Guarantee isolation and determinism.** Tests must be independent, fast, and repeatable. They must never share state, assume the presence of resources created by other tests, or rely on external timing factors that could introduce flakiness.
 * **Rule 8: Maximize coverage through parameterization.** Explicitly design tests to validate expected behavior and catch bugs across all positive, negative, and edge-case scenarios. Use parameterization (like `@pytest.mark.parametrize`) to loop through variations, avoiding code duplication and improving readability.
 
 ---

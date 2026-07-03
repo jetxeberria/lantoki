@@ -57,3 +57,20 @@ applyTo: "**/*.py"
 
 * Secrets: Never hardcode secrets. Use environment variables or .env files.
 * Imports: Always prefer absolute imports over relative imports.
+
+## VII. Configuration Loading & Validation
+
+* Mandatory Loader: Configuration must be loaded with dynaconf. Do not read configuration directly with ad-hoc os.environ parsing, raw TOML/JSON/YAML readers, or scattered constants.
+* Context-Bound Requirements: Every runtime context (for example: user setup, repo setup, CLI mode, service mode) must define an explicit minimum required configuration contract.
+* Fail Fast on Missing Keys: Validate required configuration at startup for the active context and raise a clear error that names the missing key and context.
+* Separate Contracts by Context: Keep required keys grouped by context to avoid over-validating unrelated paths and to keep extension points clear.
+* Test Enforcement: Add or update tests to assert that missing required configuration for a context fails deterministically with an actionable error.
+
+## VIII. Module Boundaries for Exceptions and Config
+
+* Exception Location Rule: Define all custom exception classes in an exceptions.py module for the package or bounded context. Do not scatter exception class definitions across feature modules.
+* Controlled Exception Hierarchy Rule: All custom exceptions must inherit from one main controlled custom exception (for example, `BaseApplicationError`) that centralizes shared behavior.
+* Shared Exception Logic Rule: Cross-cutting exception behavior (for example, structured self-logging when instantiated/raised, error metadata normalization, or common serialization fields) must live in the controlled base exception, not duplicated in subclasses.
+* Configuration Location Rule: Define all configuration loading and parsing logic in a config.py module for the package or bounded context. Avoid duplicating loading logic in CLI, service, or utility modules.
+* Import Usage Rule: Other modules should import exceptions and configuration access from these dedicated modules instead of re-implementing them.
+* Test Pairing Rule: Each exceptions.py and config.py must have a dedicated corresponding test file (for example: test_exceptions.py and test_config.py).

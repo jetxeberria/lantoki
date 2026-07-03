@@ -1,0 +1,1433 @@
+************
+DASGATE_EDGE
+************
+
+=================
+bash utils
+=================
+
+source env vars from file
+-------------------------
+
+mypath=/tmp/variables
+mypath=/home/dasgater/deletemetoo
+for i in `cat $mypath`; do export $i; done
+
+=================
+postgres database
+=================
+
+conectarse a la bbdd
+--------------------
+- look for database host and password in vault_vars in dasgate_edge
+ansible-vault view dasgate_edge/group_vars/gatekeepers/vault_vars.yml
+
+- log in database by running:
+psql --dbname=wall_game --host=db-postgres-dasgate.cji0kjheepxl.eu-west-1.rds.amazonaws.com --username=postgres_admin --password
+
+psql --dbname=wall_show --host=db-postgres-dasgate.ckccxmrnfdps.eu-west-1.rds.amazonaws.com --username=postgres_admin --password
+
+psql --dbname=wall_game --host=db-psql-dasgate-encrypted.clfwd8edvgii.eu-west-1.rds.amazonaws.com --username=postgres_admin --password
+
+check user is in cloud database
+-------------------------------
+select * from personal_data where user_id::text like 'jetxe%';
+
+Contar usuarios en un dominio
+-----------------------------
+
+select count(*) from roles where domain like 'granada';
+
+
+Encontrar usuarios prohibidos
+-----------------------------
+
+Lista de usuarios (DNIs)
+------------------------
+SELECT personal_data.document_id, roles.domain
+FROM personal_data
+INNER JOIN roles ON personal_data.sid = roles.member
+WHERE roles.group = '90d84189-6cc2-42ae-90db-cdb875e21ccd' AND roles.domain = 'almeria'
+ORDER BY roles.domain;
+
+Cuenta de prohibidos por provincia
+--------------------------------
+SELECT count(personal_data.document_id), roles.domain
+FROM personal_data
+INNER JOIN roles ON personal_data.sid = roles.member
+WHERE roles.group = '90d84189-6cc2-42ae-90db-cdb875e21ccd'
+GROUP BY roles.domain
+ORDER BY count(personal_data.document_id);
+
+Guardar en CSV
+--------------
+
+- Touch output file
+- Provide writing permissions
+- Run copy command:
+
+\copy (Select * From foo) To '/tmp/test.csv' With CSV DELIMITER ',' HEADER;
+
+INTERDICTEDS
+
+\copy (SELECT personal_data.document_id, personal_data.name, personal_data.surname FROM personal_data INNER JOIN roles ON personal_data.sid = roles.member WHERE roles.group = '90d84189-6cc2-42ae-90db-cdb875e21ccd' AND roles.domain ='almeria' ORDER BY roles.domain) To '/tmp/almeria_interdicteds.csv' With CSV DELIMITER ',' HEADER;
+
+LAST UPLOADED
+
+- Log in rag_game db
+
+psql "port=5432 host=db-psql-dasgate-encrypted.clfwd8edvgii.eu-west-1.rds.amazonaws.com  user=postgres_admin password=GVHLPMawLnj23THHqb8M8Jj25xVU3grkYX dbname=rag_game"
+
+
+- Download hex file
+
+\copy (select encode(blob,'hex') from interdicted_registries where domain = 'almeria' order by upload_datetime DESC limit 1) to '/tmp/last_uploaded_for_almeria.hex';
+
+- Convert in txt file
+
+xxd -p -r last_uploaded_for_almeria.hex > last_uploaded_for_almeria.csv
+
+
+Comparar allowed users con last interdicteds uploaded:
+
+
+grep -f almeria_allowed.csv -Fw last_uploaded_for_almeria.csv > matches_for_almeria.csv
+
+Listar slots
+------------
+select * from pg_replication_slots;
+
+Listar slots con tamaño ocupado
+-------------------------------
+SELECT
+   slot_name,
+pg_current_wal_lsn() as current,
+restart_lsn as last_lsn_sent_to_terminal,
+pg_wal_lsn_diff(pg_current_wal_lsn(), restart_lsn) as  bytes,
+   pg_size_pretty(pg_wal_lsn_diff(pg_current_wal_lsn(), restart_lsn)) AS replicationSlotLag,
+   active
+FROM
+   pg_replication_slots
+order by bytes desc;
+
+Drop slot
+---------
+select pg_drop_replication_slot('dlk00022');
+
+
+delete user
+-----------
+DELETE FROM roles WHERE member = 'sid here';
+DELETE FROM embeddings WHERE sid = 'sid here';
+DELETE FROM personal_data WHERE sid = 'sid here';
+DELETE FROM subjects WHERE sid = 'sid here';
+
+check user is replicated in local database
+------------------------------------------
+
+- log in terminal
+- run:
+sudo runuser -u postgres -- psql
+\c wall
+select * from personal_data where user_id::text like 'jetxe%';
+select * from personal_data where document_id::text like '7280%';
+
+================
+couchdb database
+================
+
+check user is in cloud database
+-------------------------------
+- Type on web browser:
+  - play:
+     - non-secure: https://ci.das-gate.com:6984/_utils/
+     - secure: https://tenant.db.ci-srv.das-gate.com:8984/_utils/#login
+     - secure: https://demo-val.db.ci-srv.das-gate.com:7984/_utils/
+  - work:
+     - secure: https://tenant.db.work-srv.das-gate.com:8984/_utils/#login
+     - non-secure: https://work.das-gate.com:6984/_utils/
+  - live:
+     - secure: https://tenant.db.srv.das-gate.com:8984/_utils/#login
+     - non-secure: https://app.das-gate.com:6984/_utils/
+
+- Gather access credentia (user & pass) from vault:
+  - play: dasgate/cloud/couchdb/play/admin
+  - work: dasgate/cloud/couchdb/work/admin
+  - live: dasgate/cloud/couchdb/live/admin
+
+- Use Mango Query to check for documents:
+{
+   "selector": {
+      "_id": {
+         "$gt": null
+      },
+      "doc_type": "credentials"
+   }
+}
+
+
+
+verify conexion from terminal to remote tenant db with certified and password
+-----------------------------------------------------------------------------
+
+- Gather access credentia (user & pass) from vault:
+user: hostname
+pass: /opt/couchdb/etc/secrets_remote
+
+curl --cert /etc/vault/pki/terminal.cert.pem  --cacert /etc/vault/pki/terminal.trustedcas.pem   --key /etc/vault/pki/terminal.key.pem --connect-timeout 5 --user dlk00110  https://local.db.ci-srv.das-gate.com:7984/local
+
+7984 o 443?
+
+
+check user is in local database
+-------------------------------
+
+- Gather terminal_ip
+- Type on web browser: http://{{terminal_ip}}:5984/_utils/#login
+- Gather access credentials (user & pass) from terminal:
+cat /opt/couchdb/tool/settings.yml
+
+
+check replication status
+------------------------
+
+couchdb_tool replication status
+
+For OTA:
+DISCOVERY_CONFIG_PATH=/var/lib/dasgate/discovery/ /opt/dasgate/envs/dagent/bin/python /opt/dasgate/envs/dagent/bin/couchdb_tool.py replication status
+
+
+remove user manually
+---------------------
+DYNACONF_predecessor_db__key_file=/etc/vault/pki/terminal.key.pem DYNACONF_predecessor_db__cert_file=/etc/vault/pki/terminal.cert.pem DYNACONF_predecessor_db__cas_file=/etc/vault/pki/terminal.all_trustedcas.pem DYNACONF_predecessor_db__tenant=gambling-val DYNACONF_predecessor_db__admin_username=admin DYNACONF_predecessor_db__admin_password=... DYNACONF_predecessor_db__url=https://gambling-val.db.srv.das-gate.com:7984 /opt/dasgate/envs/dagent/bin/python /opt/couchdb/tool/couchdb_tool.py users remove
+
+
+DYNACONF_predecessor_db__key_file=/etc/vault/pki_backup/terminal.key.pem DYNACONF_predecessor_db__cert_file=/etc/vault/pki_backup/terminal.cert.pem DYNACONF_predecessor_db__cas_file=/etc/vault/pki_backup/terminal.all_trustedcas.pem DYNACONF_predecessor_db__tenant=gambling-val DYNACONF_predecessor_db__admin_username=admin DYNACONF_predecessor_db__admin_password=... DYNACONF_predecessor_db__url=https://gambling-val.db.srv.das-gate.com:7984 /opt/dasgate/envs/dagent/bin/python /opt/couchdb/tool/couchdb_tool.py users remove
+
+configure replication manually
+-------------------------------
+
+cd /opt/couchdb/tool; /opt/dasgate/envs/dagent/bin/python /opt/couchdb/tool/couchdb_tool.py replication configure; cd -
+
+
+remove registered device
+------------------------
+- Access couchdb, partition 'devices'
+- Locate documents of device to delete, there are 2, one with dlk name and the other with module_id
+- Modify documents by adding argument "_deleted": true and save changes
+
+
+populate local couchdb database
+--------------------------------
+python welcome/scripts/local_populate_credentials.py --username admin --password <local coucdhb pass> --database phygital-compact --count 100000 --location phygital-compact --url http://<terminal ip>:5984
+
+==============================
+open monitor
+==============================
+- Open bridge to terminal
+ssh -L 1111:localhost:3333 IP
+dlt jmpt 192.168.1.101 -L 1111:localhost:3333
+dlt vpn -o connect 192.168.1.101 -L 1111:localhost:3333
+
+- Configure hostvar
+INSPECTOR_things__camera__monitor__monitor_enabled=true
+
+- Run script in guide repo
+python -m scripts.validate_monitor
+
+===========================
+mount device folder in host
+===========================
+
+Host:
+sshfs jetxeberria@192.168.4.142:/home/jetxeberria/ shared_terminal/
+
+Terminal:
+cp -r /opt/dasgate/envs/inspector/bin/lib/python3.6/site-packages/inspector /home/jetxeberria
+sudo su
+chmod 777 -R /home/jetxeberria/inspector
+
+INSPECTOR_CONFIG_PATH=/etc/dasgate/inspector PYTHONPATH=/home/jetxeberria /opt/dasgate/envs/inspector/bin/python -c 'from inspector.app import main; main()'"
+
+
+==================
+files management
+=================
+
+check headers information of file
+---------------------------------
+
+objdump --private-headers FILE
+
+
+==================
+list largest files
+==================
+
+export TARGET_PATH=/home/jetxeberria
+export FILES_NUM=10
+
+du -ha $TARGET_PATH 2>/dev/null | sort -h | grep -v "/\." | tail -n $FILES_NUM
+
+==============
+launch welcome
+==============
+
+local
+-----
+
+ENV_FOR_DYNACONF="dev" python -m welcome.local
+
+access docs
+----------
+launch welcome
+access to:
+0.0.0.0:8000/internal/docs: To be used by internal queries
+0.0.0.0:8000/public/docs: To be used by client
+
+
+======
+gitlab
+======
+
+un-commit last un-pushed git commit without losing the changes
+--------------------------------------------------------------
+
+git reset HEAD~1 --soft
+
+create patch
+------------
+- temporally create a branch at the commit that want to be modified and checkout there
+
+git checkout -b new_branch_name commit_sha
+
+- apply and commit changes (don't push!)
+- build patch file of latest commit of the new branch
+
+git format-patch -1 HEAD
+
+- move patch to your target path
+- clean patch from original path
+- checkout back to original point and branch
+
+git checkout 9940cd4d8d
+
+- delete temporal branch
+
+git branch -D create_patch
+
+
+=========
+AWX
+=========
+
+Check operations done in terminal
+-----------------------------------
+
+- Go to Views > Activity Stream
+- Filter by:
+  - Initiated by (username): sys_ansible
+  - Keyword (search): host
+  - Keyword (search): dlk00076
+
+
+============
+Launch Vault
+============
+see in keepassxc
+
+
+Obtener un certificado
+======================
+
+Obtener token
+-------------
+
+Instalar vault:
+
+curl -fsSL https://apt.releases.hashicorp.com/gpg | sudo apt-key add -
+sudo apt-add-repository "deb [arch=amd64] https://apt.releases.hashicorp.com $(lsb_release -cs) main"
+sudo apt-get update && sudo apt-get install vault
+
+Crear script vault_login.sh:
+
+#!/bin/bash
+
+RESPONSE=$(vault login -method=oidc role="default" --format=json)
+echo $RESPONSE | jq
+
+TOKEN=$(echo $RESPONSE | jq -r ".auth.client_token" )
+export VAULT_TOKEN=$TOKEN
+echo "VAULT_TOKEN: $VAULT_TOKEN"
+
+Hacer script ejecutable
+chmod +x ./vault_login.sh
+
+Meter script en el path: Bien con un link simbólico desde carpetas que ya estén en el path al fichero en concreto, o metiendo en el path la carpeta contenedora al fichero
+
+Ejecutar script para generar el token
+./vault_loging.sh
+
+Generar certificado
+-------------------
+Ejecutar script de welcome_tenants
+
+python vault_api_client.py tenants sign
+environment (play/work/live)
+subdomain: testing (Don't use underscores here!)
+vault token: paste here the token generated with the script vault_login.sh
+tenant: an existing tenant
+
+From the output, gather the following certificates and send each to one file:
+KEY -> key.pem
+CERTIFICATE -> cert.pem
+CA CHAIN (the three at once)-> ca.pem
+
+Output example:
+
+Environment (play, work, live): play
+Subdomain: test-for-play
+Vault token:
+Tenant: tenant-name
+2021-11-08 13:29:30 INFO   Vault client authenticated? True
+2021-11-08 13:29:33 INFO   TENANT-NAME    LIVE    CERTIFICATE:
+-----BEGIN CERTIFICATE-----
+MIIF8TCCBNmgAwIBAgIUP3pN/QVTcJVLBsoywdg2ZrH1jAIwDQYJKoZIhvcNAQEL
+...
+phf+mGQbLqgXKcHcgOD1u8XzQQJc1fZ9IdvmxVIRA7iT06/E0w==
+-----END CERTIFICATE-----
+2021-11-08 13:29:33 INFO   CNALMERIA    LIVE    KEY:
+-----BEGIN RSA PRIVATE KEY-----
+MIIJKgIBAAKCAgEA5hOsGRbDu2bBfHNAC2Pm7hnnv/hmblrxnmkic7DAgiWdrKyR
+...
+EUTt4BHZ5Nb7flcHv9mV8ERq34lJdG0g+1XAKELrtq6YFHw18qsqX0znpG0VQg==
+-----END RSA PRIVATE KEY-----
+2021-11-08 13:29:33 INFO   CNALMERIA    LIVE    ROOT CA:
+-----BEGIN CERTIFICATE-----
+MIID1TCCAr2gAwIBAgIUCVTIVK3bRTBpy3iBJLiiysedQDswDQYJKoZIhvcNAQEL
+...
+209tT5sCkZ+HWkwLTcnkuao3YcjexMOwLw==
+-----END CERTIFICATE-----
+
+2021-11-08 13:29:33 INFO   CNALMERIA    LIVE    CA2:
+-----BEGIN CERTIFICATE-----
+MIIEVTCCAz2gAwIBAgIUcXKcoAV7NWo2oaLl5DsRfmMnPoQwDQYJKoZIhvcNAQEL
+...
+N36+6ar6YpuJ
+-----END CERTIFICATE-----
+2021-11-08 13:29:33 INFO   CNALMERIA    LIVE    CA:
+-----BEGIN CERTIFICATE-----
+MIIEgTCCA2mgAwIBAgIUAJRzjQ1qfaIOuYuc9cDxbRPqMKYwDQYJKoZIhvcNAQEL
+...
+JQo1NZ4=
+-----END CERTIFICATE-----
+2021-11-08 13:29:33 INFO   CNALMERIA    LIVE    CA CHAIN:
+-----BEGIN CERTIFICATE-----
+MIIEgTCCA2mgAwIBAgIUAJRzjQ1qfaIOuYuc9cDxbRPqMKYwDQYJKoZIhvcNAQEL
+...
+JQo1NZ4=
+-----END CERTIFICATE-----
+-----BEGIN CERTIFICATE-----
+MIIEVTCCAz2gAwIBAgIUcXKcoAV7NWo2oaLl5DsRfmMnPoQwDQYJKoZIhvcNAQEL
+...
+N36+6ar6YpuJ
+-----END CERTIFICATE-----
+-----BEGIN CERTIFICATE-----
+MIID1TCCAr2gAwIBAgIUCVTIVK3bRTBpy3iBJLiiysedQDswDQYJKoZIhvcNAQEL
+...
+209tT5sCkZ+HWkwLTcnkuao3YcjexMOwLw==
+-----END CERTIFICATE-----
+
+Esto genera varios ficheros, entre ellos el keystore.p12 que incluye el certificado y la firma
+
+Activar certiciado en firefox
+
+Firefox > Settings > Certificates > Import > keystore.p12
+
+===============================================
+Make bridge to see mosquitto from external host
+===============================================
+
+terminal 1:
+ssh -L 1993:localhost:1883  192.168.5.177
+
+terminal 2:
+mosquitto_sub -p 1993 -h localhost -t '#'
+
+
+=============================
+Error de APT por clave PGP
+=============================
+
+Error que vereis al usar APT
+Err:12 https://repositories.ops.das-gate.com/repository/dasnano-apt-focal focal InRelease
+  Las siguientes firmas no fueron válidas: EXPKEYSIG E99C0373D00F358A das-nano
+
+Pasos
+- sudo apt-key del E99C0373D00F358A
+- sudo apt-key add extended_public.pgp
+- sudo apt-key list   (para comprobar que está bien)
+  pub   rsa3072 2020-10-05 [SC] [caduca: 2072-09-22]
+        6F84 B24D A867 7B38 1CD1  94D6 E99C 0373 D00F 358A
+  uid        [desconocida] das-nano <rmartinez@das-nano.com>
+  sub   rsa3072 2020-10-05 [E] [caduca: 2072-09-22]
+- sudo apt-get update
+
+===================================
+Connect to VPN
+=====================================
+
+VPN_NIC_NAME=ota
+HUB=ota
+SERVER_URL='vpn.work-ops.das-gate.com:443'
+SERVER_API='https://vpn.work-ops.das-gate.com/api'
+HOSTNAME=$HOSTNAME
+PASS=
+------------------------------------
+before script run on terminal/ansible
+------------------------------------
+
+VPN_ADMIN_USER=administrator
+VPN_ADMIN_PASS=
+# Create user
+curl $SERVER_API --insecure -u $VPN_ADMIN_USER -H 'Content-Type: application/json' -X POST -d '{"jsonrpc": "2.0", "id": "rpc_call_id", "method": "CreateUser", "params": {"HubName_str": "$HUB", "Name_str": "$HOSTNAME", "AuthType_u32": 1, "Auth_Password_str": "$PASS", "UsePolicy_bool": false}}'
+
+curl https://vpn.work-ops.das-gate.com/api --insecure -u administrator -H 'Content-Type: application/json' -X POST -d '{"jsonrpc": "2.0", "id": "rpc_call_id", "method": "CreateUser", "params": {"HubName_str": "dasgate", "Name_str": "dlk00306", "AuthType_u32": 1, "Auth_Password_str": "temporal_password", "UsePolicy_bool": false}}'
+------------------
+script
+------------------
+# Create NIC
+vpncmd /client localhost /cmd NicCreate $VPN_NIC_NAME || { echo 'Nic Create failed' ; exit 1; }
+# Create account
+vpncmd /client localhost /cmd AccountCreate $VPN_NIC_NAME /SERVER:$SERVER_URL /HUB:$HUB /USERNAME:$HOSTNAME /NICNAME:vpn_$VPN_NIC_NAME  || { echo 'Create account failed' ; exit 1; }
+# Configure password for user
+vpncmd /client localhost /cmd AccountPassword $VPN_NIC_NAME /PASSWORD:$PASS /TYPE:"standard"  || { echo 'Configure password failed' ; exit 1; }
+# Connect account
+vpncmd /client localhost /cmd AccountConnect $VPN_NIC_NAME || { echo 'Connect account failed' ; exit 1; }
+# Configure startup
+vpncmd /client localhost /cmd AccountStartupSet $VPN_NIC_NAME || { echo 'Configure startup failed' ; exit 1; }
+# Configure unlimited retries
+vpncmd /client localhost /cmd AccountRetrySet $VPN_NIC_NAME /NUM:999 /INTERVAL:10 || { echo 'Configure unlimited failed' ; exit 1; }
+
+
+====================
+check USB 2.0 or 3.0
+====================
+
+lsusb -s 002:002 -v
+
+======
+Lenovo
+======
+
+Install wifi driver - for first time
+------------------------------------
+sudo apt update
+sudo apt install -y git build-essential
+cd ~
+git clone https://github.com/lwfinger/rtw89.git
+cd ~/rtw89
+make
+sudo make install
+sudo mkdir /usr/lib/firmware/rtw89
+sudo cp ~/rtw89/rtw8852a_fw.bin  /usr/lib/firmware/rtw89/
+sudo modprobe rtw89pci
+
+
+Install wifi driver - after OS update
+------------------------------------
+cd ~/rtw89
+git pull
+make
+sudo make install
+sudo modprobe rtw89pci
+
+
+Install graphics driver
+-----------------------
+
+sudo add-apt-repository ppa:ubuntu-x-swat/updates
+sudo apt-get update
+sudo apt-get upgrade
+sudo apt install mesa-utils
+glxinfo | grep "OpenGL version"
+
+
+========
+vault
+=======
+
+See what a token has permissions to do:
+
+vault token lookup s.FgcWNo6n6EpOHl8CIX6pHZAQ
+
+2 roles
+ansible: solo tiene acceso para generar un role y un secret
+
+Update tenants policy:
+----------------------
+python -m scripts.vault_api_client tenants update --environment=play
+
+Read fuses encryption key:
+--------------------------
+vault read --format=json kv/data/dasgate/terminal/orin-nano/pkc0 | jq .data.data.private | base64 -d -i
+
+============================
+certificates
+============================
+
+Generate private-public key pair
+--------------------------------
+
+openssl genrsa -out tests/data/private_key.pem 4096
+openssl rsa -in private_key.pem -pubout -out public_key.pem
+
+Encrypt log file as inspector does
+----------------------------------
+cd /path/to/inspector/repo
+activate
+ipython
+from inspector.crypto import encrypt_file
+from inspector.system_manager.manager import load_public_key
+public_key = await load_public_key("/home/jetxeberria/projects/dasgroup/veridas/dasgate-team/platform/linux_tools/tests/data/public_key.pem")
+await encrypt_file("/home/jetxeberria/projects/dasgroup/veridas/dasgate-team/platform/linux_tools/tests/data/non_compressed.log", "/home/jetxeberria/projects/dasgroup/veridas/dasgate-team/platform/linux_tools/tests/data/encrypted_non_compressed.enc", public_key)
+
+============================
+decrypt log file
+============================
+from tests.api.test_logs_fetch import decrypt_file
+from cryptography.hazmat.primitives import (
+     serialization as crypto_serialization,
+     hashes,
+)
+private_path = "/home/jetxeberria/projects/utils/log_encryption"
+with open(private_path, "rb") as file:
+    private_key = file.read()
+key = crypto_serialization.load_pem_private_key(private_key, None)
+await decrypt_file("/home/jetxeberria/downloads/logs_10_before_2023-08-02T13 18 18.979137+00 00.7z.enc", "/home/jetxeberria/downloads/decrypted", key)
+
+
+============================
+troubleshooting certificates
+============================
+
+Docs: https://dasgroup.gitlab.io/dasgate/docs/operations/troubleshooting/troubleshoot_dhub_replication/#21-working-tls-connection-to-tenant-url-with-openssl
+
+logs haproyx llegan? 99% hay un firewall
+openssl / curl
+
+Script
+#!/bin/bash
+while [ True ]
+do
+   curl --cert /etc/vault/pki/terminal.cert.pem  --cacert /etc/vault/pki/terminal.trustedcas.pem   --key /etc/vault/pki/terminal.key.pem --connect-timeout 5  https://repsol.db.work-srv.das-gate.com:7984/repsol
+   sleep 5
+   curl --cert /etc/vault/pki/terminal.cert.pem  --cacert /etc/vault/pki/terminal.trustedcas.pem   --key /etc/vault/pki/terminal.key.pem --connect-timeout 5  https://repsol.db.srv.das-gate.com:7984/repsol
+   sleep 20
+done
+
+Pasos
+vi  /root/generate_traffic.sh
+-- Se mete el contenido
+
+chmod +x  /root/generate_traffic.sh
+
+nohup  /root/generate_traffic.sh &
+-- Eso hace que se quede en background ejecutandose
+
+tail -500f /root/nohup.log
+--- Tienes que ver algo de este estilo
+
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:--  0:00:03 --:--:--     0curl: (7) Failed to connect to repsol.db.work-srv.das-gate.com port 7984: Connection timed out
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:--  0:00:03 --:--:--     0curl: (7) Failed to connect to repsol.db.srv.das-gate.com port 7984: Connection timed out
+
+Inspeccionar el contenido de un certificado:
+--------------------------------------------
+
+openssl x509 -in /etc/vault/pki_backup/terminal.cert.pem -text -noout
+
+============================
+troubleshooting apt
+============================
+
+apt-get update
+--------------
+
+Err:1 https://repositories.ops.das-gate.com/repository/apt-proxy-ubuntu-ports-bionic bionic InRelease
+  Temporary failure resolving 'repositories.ops.das-gate.com'
+
+Try nslookup repositories.ops.das-gate.com
+
+systemctl status systemd-resolved
+
+Is service up?
+
+=============================
+Run thekeeper event simulator
+=============================
+
+- Tunnel ssh:
+
+$ ssh -L port_numer:localhost:1883 terminal_IP --> port_number have to be different to 1883
+
+- Launch mosquitto:
+
+$ mosquitto_sub -h localhost -p port_numer -t "#"
+
+- en mi maquina emito authentication_succeeded con el simulador de eventos de thekeeper
+  - configurar access_point (del terminal al que me estoy conectando) + puerto (al puerto que he puesto en el tunel) en el propio script, el ip es localhost (por haber hecho el tunel)
+  - ejecutar simulador: $ python -m scripts.launch_event_simulator
+
+
+==================
+Enable storage USB massive
+==================
+
+sudo modprobe uas; modprobe usb_storage
+
+=====================================
+Clean docker resources from PC/Jetson
+=====================================
+
+sudo docker system prune -a -f
+
+=====================================
+docker login (Official gitlab procedure): https://docs.gitlab.com/ee/user/packages/container_registry/authenticate_with_container_registry.html
+
+docker login: follow steps in https://www.shkodenko.com/how-to-fix-pass-store-is-uninitialized-on-ubuntu-linux-in-docker-setup/
+=====================================
+When seen the error of: pass store is uninitialized
+
+- Verify use of pass configured in docker config:
+cat /home/jetxeberria/.docker/config.json
+{
+	"auths": {
+		...
+		"registry.gitlab.com/dasgroup/veridas/dasgate-team": {},
+	},
+	"credsStore": "pass"
+}
+
+- Generate new GPG key. Provide as passphrase the one added in my personal keepassxc/external_services/gitlab
+gpg --full-generate-key
+
+- Follow gpg steps, name = Jose Etxeberria, email = jetxeberria@veridas.com, comment = empty
+
+- Verify key is added:
+gpg --list-secret-keys --keyid-format LONG
+
+- Find KEY-ID in response
+> sec   rsa3072/KEY-ID 2024-04-08 [SC]
+
+- Change permissions to store credential
+sudo chown jetxeberria:docker -R /home/jetxeberria/.password-store/docker-credential-helpers/
+
+- Initialize key in pass. Provide as passphrase the one added in my personal keepassxc/external_services/gitlab
+pass init "KEY-ID"
+
+- List docker credentials
+docker-credential-pass list
+> {"registry.gitlab.com":"jetxeberria-dasnano"}
+
+- Perform docker login
+docker login registry.gitlab.com/dasgroup/veridas/dasgate-team
+
+
+==========================
+run docker as another user
+==========================
+
+docker run -u $(id -u):$(id -g)
+
+====================
+Terminals management
+====================
+
+- Remount partition as R+W
+
+sudo mount -o remount,rw /
+
+===============
+Develop for ARM
+===============
+
+Mount local repository in ARM device:
+
+ssh 10.199.0.11 -R 10000:$(hostname):22
+mkdir dev_testing
+sshfs -p 10000 -o idmap=user,nonempty $USER@127.0.0.1:$HOME/projects/test_repositories/dev_testing dev_testing/
+
+===================
+Issue - Logging in traditional terminal
+===================
+- Authentication is failing because it's trying to use the pubkey and it's not recognized. In order to force avoiding the use of pubkey an argument must be added.
+To log in directly using ssh:
+ssh dasgate_admin@192.168.5.100 -o PubkeyAuthentication=no
+
+To deploy with Ansible. Add extra var:
+-e 'ansible_ssh_common_args="-o PubkeyAuthentication=no"'
+
+===================
+OTA - Install apt
+===================
+
+wget http://ports.ubuntu.com/ubuntu-ports/pool/main/a/apt/apt_1.6.14_arm64.deb
+sudo dpkg -i apt_1.6.14_arm64.deb
+sudo apt-get update
+
+===================
+OTA - Delete apt
+===================
+
+sudo apt-get purge apt
+
+===============================================
+OTA - Modify file in rootfs that has an overlay
+===============================================
+
+mkdir /tmp/mount
+mount -o bind / /tmp/mount
+mount -o remount,rw /tmp/mount
+**modify the file, for example:**
+vi /tmp/mount/home/guide/.config/openbox/autostart
+
+==================================================================================
+OTA - Configure VPN, run terminal_enrol_init playbook without SSH keys in terminal
+==================================================================================
+ansible-playbook terminal_enrol_init.yml --ask-vault-pass --extra-vars="targets=dlk03000 vpn_hub_name=dasgate vpn_env=play" --private-key admin_cert/id_rsa -u dasgate_admin
+
+===============================
+OTA - Enrol comercial SolidRun
+===============================
+
+git checkout enroll_comercial
+ansible-playbook terminal_enrol.yml --ask-vault-pass --extra-vars="targets=dlk03000" --private-key admin_cert/id_rsa -u dasgate_admin
+git checkout master
+
+=========================
+Environment customization
+=========================
+Add in ~/.profile
+
+export PATH=$HOME/.local/bin/:$PATH
+export NEXUS_DASNANO_USER=
+export NEXUS_DASNANO_PASSWORD=
+export VPN_ADMIN_PASSWORD=
+export VPN_DASNANO_USERNAME=
+export VPN_DASNANO_PASSWORD=
+export VAULT_ADDR=https://vault.srv.das-gate.com
+
+=========
+Aliases
+========
+
+
+# Find terminal in dasnano network given MAC
+alias find_terminal="sudo nmap -sn 192.168.4.0/24 | grep -B 2"
+
+# Automatically activate environment based on the current working directory
+alias activate='NAME=${PWD##*/};source ${PWD}/.tox/$NAME/bin/activate'
+alias flash_tx2_orbitty_jp421="cd /home/jetxeberria/nvidia/nvidia_sdk/JetPack_4.2.1_Linux_GA_JETSON_TX2/Linux_for_Tegra;sudo ./flash.sh cti/tx2/orbitty mmcblk0p1; cd -"
+alias flash_tx2_4g_orbitty_jp421="cd /home/jetxeberria/nvidia/nvidia_sdk/JetPack_4.2.1_Linux_GA_JETSON_TX2/Linux_for_Tegra;sudo ./flash.sh cti/tx2-4G/orbitty mmcblk0p1; cd -"
+alias flash_tx2_orbitty_jp441="cd /home/jetxeberria/nvidia/nvidia_sdk/JetPack_4.4.1_Linux_JETSON_TX2/Linux_for_Tegra;sudo ./flash.sh cti/tx2/orbitty mmcblk0p1; cd -"
+alias flash_tx2i_orbitty_jp441="cd /home/jetxeberria/nvidia/nvidia_sdk/JetPack_4.4.1_Linux_JETSON_TX2/Linux_for_Tegra;sudo ./flash.sh cti/tx2i/orbitty mmcblk0p1; cd -"
+alias flash_tx2_4g_orbitty_jp441="cd /home/jetxeberria/nvidia/nvidia_sdk/JetPack_4.4.1_Linux_JETSON_TX2/Linux_for_Tegra;sudo ./flash.sh cti/tx2-4G/orbitty mmcblk0p1; cd -"
+alias flash_tx2_orbitty_jp461="cd /home/jetxeberria/nvidia/nvidia_sdk/JetPack_4.6_Linux_JETSON_TX2_TARGETS/Linux_for_Tegra/;sudo ./flash.sh cti/tx2/orbitty/base mmcblk0p1; cd -"
+alias flash_tx2i_orbitty_jp461="cd /home/jetxeberria/nvidia/nvidia_sdk/JetPack_4.6_Linux_JETSON_TX2_TARGETS/Linux_for_Tegra/;sudo ./flash.sh cti/tx2i/orbitty/base mmcblk0p1; cd -"
+alias flash_tx2_4g_orbitty_jp461="cd /home/jetxeberria/nvidia/nvidia_sdk/JetPack_4.6_Linux_JETSON_TX2_TARGETS/Linux_for_Tegra/;sudo ./flash.sh cti/tx2-4G/orbitty/base mmcblk0p1; c$
+
+alias git_revert_last_commit="git reset --soft HEAD~1"
+alias download_shared_keepass="aws s3 sync s3://dasnano-keepass ~/documents/shared_keepass --profile=play"
+alias upload_shared_keepass="aws s3 sync s3://dasnano-keepass ~/documents/shared_keepass_backup --profile=play; aws s3 sync ~/documents/shared_keepass s3://dasnano-keepass --profile=play"
+
+# Dasgate 0
+alias launch_keeper="cd /etc/dasgate; sudo runuser -u keeper -p -- /opt/dasgate/envs/keeper/bin/python -c 'from dasgate.app import main; main()'"
+
+# Dasgate 1
+
+### Launch inspector
+sudo DYNACONF_host__access_point=corporate-val/instalaciones/perimetral/entrada_tenis/001 DYNACONF_host__capacity_restart_hour="03:00" DYNACONF_retention__accesses__restart_hour="03:00" INSPECTOR_CONFIG_PATH=/etc/dasgate/inspector runuser -u inspector -p -- /opt/dasgate/envs/dagent/bin/python -c 'from inspector.app import main; main()'
+
+## For Orin / Solidrun  (don't have runuser)
+
+su -s /bin/sh --preserve-environment -c "/opt/dasgate/envs/dagent/bin/python -c 'from inspector.app import main; main()'" inspector
+
+sudo DYNACONF_host__access_point=gambling-val/es-cn/salon-cn/calle_sala/108_enter DYNACONF_host__capacity_restart_hour="03:00" DYNACONF_retention__accesses__restart_hour="03:00" THEKEEPER_CONFIG_PATH=/etc/dasgate/thekeeper runuser -u thekeeper -p -- /opt/dasgate/envs/dagent/bin/python -c 'from thekeeper.app import main; main()'
+
+### Launch guide - pre OTA
+DISPLAY=:0.0 GUIDE_CONFIG_PATH=/etc/dasgate/guide runuser -u guide -p -- /opt/dasgate/envs/dagent/bin/python -m guide.app
+
+alias launch_guide="sudo GUIDE_CONFIG_PATH=/etc/dasgate/guide runuser -u guide -p -- /opt/dasgate/envs/guide/bin/python -c 'from guide.app import main; main()'"
+alias launch_auditor="sudo AUDITOR_CONFIG_PATH=/etc/dasgate/auditor runuser -u auditor -p -- /opt/dasgate/envs/auditor/bin/python -c 'from auditor.app import main; main()'"
+launch_ota_thekeeper="DYNACONF_host__access_point=gambling-val/es-ct/salon-ct/secundaria_sala/106_enter THEKEEPER_CONFIG_PATH=/var/lib/dasgate/thekeeper runuser -u thekeeper -p -- /opt/dasgate/envs/dagent/bin/python -c 'from thekeeper.app import main; main()'"
+launch_ota_auditor="DYNACONF_host__access_point=dasnano/talluntxe/building01/area01/3002 AUDITOR_CONFIG_PATH=/var/lib/dasgate/auditor runuser -u auditor -p -- /opt/dasgate/envs/dagent/bin/python -c 'from auditor.app import main; main()'"
+launch_ota_inspector="DYNACONF_host__access_point=dasnano/talluntxe/building01/area01/3002 INSPECTOR_CONFIG_PATH=/var/lib/dasgate/inspector runuser -u inspector -p -- /opt/dasgate/envs/dagent/bin/python -c 'from inspector.app import main; main()'"
+
+# Dasgate 1 - OTA
+
+### Launch inspector
+For Jetson
+LD_LIBRARY_PATH=/usr/local/cuda-10.2/targets/aarch64-linux/lib DYNACONF_ARTIFACTORY_PASSWORD="" DYNACONF_ARTIFACTORY_URL="" DYNACONF_ARTIFACTORY_USER="" DYNACONF_MODELS_PATH=/opt/dasgate/models DYNACONF_host__access_point=corporate-val/scope/facility/boundary/4189 DYNACONF_host__capacity_restart_hour="03:00" DYNACONF_retention__accesses__restart_hour="03:00" INSPECTOR_CONFIG_PATH=/run/dasgate/inspector sudo -E runuser -u inspector -p -- /opt/dasgate/envs/dagent/bin/python -c 'from inspector.app import main; main()'
+
+
+For solidrun
+DELEGATE_PATH=/usr/lib/libvx_delegate.so DYNACONF_ARTIFACTORY_PASSWORD="" DYNACONF_ARTIFACTORY_URL="" DYNACONF_ARTIFACTORY_USER="" DYNACONF_MODELS_PATH=/opt/dasgate/models DYNACONF_host__access_point=guardiacivil/veridas/facility/boundary/dlk03963 INSPECTOR_CONFIG_PATH=/run/dasgate/inspector sudo -E runuser -u inspector -p -- /opt/dasgate/envs/dagent/bin/python -c 'from inspector.app import main; main()'
+
+
+
+VIV_VX_CACHE_BINARY_GRAPH_DIR=/var/cache/models VIV_VX_ENABLE_CACHE_GRAPH_BINARY=1 DELEGATE_PATH=/usr/lib/libvx_delegate.so DYNACONF_ARTIFACTORY_PASSWORD="" DYNACONF_ARTIFACTORY_URL="" DYNACONF_ARTIFACTORY_USER="" DYNACONF_MODELS_PATH=/opt/dasgate/models DYNACONF_host__access_point=solidrun-val/veridas/facility/boundary/solidrun INSPECTOR_CONFIG_PATH=/run/dasgate/inspector sudo -E runuser -u inspector -p -- /opt/dasgate/envs/dagent/bin/python -c 'from inspect
+or.app import main; main()'
+
+
+VIV_VX_CACHE_BINARY_GRAPH_DIR=/var/cache/models VIV_VX_ENABLE_CACHE_GRAPH_BINARY=1 DELEGATE_PATH=/usr/lib/libvx_delegate.so DYNACONF_ARTIFACTORY_PASSWORD="" DYNACONF_ARTIFACTORY_URL="" DYNACONF_ARTIFACTORY_USER="" DYNACONF_MODELS_PATH=/opt/dasgate/models DYNACONF_host__access_point=guardiacivil/veridas/facility/boundary/frt001434 INSPECTOR_CONFIG_PATH=/run/dasgate/inspector sudo -E /usr/sbin/runuser -u inspector -p -- /opt/dasgate/envs/dagent/bin/python -c 'from inspector.app import main; main()'
+
+
+
+To import from python console
+DELEGATE_PATH=/usr/lib/libvx_delegate.so ARTIFACTORY_PASSWORD="" ARTIFACTORY_URL="" ARTIFACTORY_USER="" MODELS_PATH=/opt/dasgate/models host__access_point=guardiacivil/veridas/facility/boundary/dlk03963 INSPECTOR_CONFIG_PATH=/run/dasgate/inspector sudo -E runuser -u inspector -p -- /opt/dasgate/envs/dagent/bin/python
+
+# Manually download a model to terminal
+ARTIFACTORY_PASSWORD="fill" ARTIFACTORY_USER="fill"  sudo -E /opt/dasgate/envs/dagent/bin/verimodels fetch-model /opt/dasgate/models --model-tag facepad_opencliprn101asmode --framework tflite
+
+# Miscelaneous
+alias find_largest_files="du -ha $TARGET_PATH 2>/dev/null | sort -h | grep -v "/\." | tail -n "
+alias vpn_connect="cd /home/jetxeberria/documents/das-nano_orokorra; sudo openvpn jetxeberria@validas.das-nano.es.ovpn; cd -"
+
+==============================
+IMX management
+==============================
+
+Access embedded system with minicom
+-----------------------------------
+
+sudo minicom -D /dev/ttyUSB0
+press ENTER
+
+In factory state:
+
+imx8mpsolidrun login: root
+(no pass)
+
+Check temperature
+Of CPU: cat /sys/class/thermal/thermal_zone0/temp
+Of SoC: cat /sys/class/thermal/thermal_zone1/temp
+
+
+===================================
+Partition management cheatsheet
+===================================
+
+See image partition layout:
+
+sudo fdisk -lu /path/to/image
+
+===================================
+Yocto cheatsheet
+===================================
+
+Search files that contains pattern. Without sudo
+
+grep -rnw '/path/to/somewhere/' -e 'pattern'
+
+grep -rnw '.' -e 'do_image_mender'
+
+With regexp
+find build/dasgate_solidrun_dev/sources/ -type f -exec grep -H -E "^localstatedir" {}
+\;
+
+With OE tool
+
+-1 Run kas shell
+kas shell dasgate_solidrun_dev.yml
+
+-2 Find package that uses a recipe
+oe-pkgdata-util find-path /etc/environment
+
+Search files with a pattern in name.
+
+find . -name pattern
+
+Regenerar imagen cuando no ha habido cambios
+--------------------------------------------
+
+Limpiar imagen
+kas shell -c "bitbake core-dasgate -c clean" ../../kas/${BUILD_NAME}.yml
+
+Volver a generar
+kas build ../../kas/${BUILD_NAME}.yml
+
+
+Listas tareas soportadas por una receta
+---------------------------------------
+kas shell "bitbake core-dasgate -c listtasks"
+
+Identificar recetas que generan un fichero
+------------------------------------------
+
+Checking which yocto package provides this file, example:
+
+oe-pkgdata-util find-path /boot/tegra234-p3767-0003-p3768-0000-a0.dtb
+
+Buscar un paquete nativo de python
+----------------------------------
+
+find build/tmp/work/armv8a-poky-linux/python3/3.10.9-r0/packages-split/ -iname "*plistlib*"
+
+Localizar y actualizar la imagen del kernel
+------------------------------
+find build/ -name Image
+> build/tmp/work/sr_imx8mp_mate-poky-linux/linux-imx/5.15.71+gitAUTOINC+95448dd0dc-r0/build/arch/arm64/boot/Image
+
+La imagen del kernel se puede actualizar directamente en el dispositivo, para ello:
+- Copiar la imagen al dispositivo:
+jmpt-cp.sh IP_DESTINO RUTA_ORIGEN # Esto copiará el fichero de la ruta origen en el /tmp del dispositivo, conectándose con certificado firmado
+jmpt.sh IP_DESTINO # Para entrar al dispositivo
+sudo su
+mount /dev/mmcblk2p1 /boot
+cp /tmp/Image /boot/Image
+
+Si ha habido un cambio en el kernel su nombre habrá cambiado por lo que es probable que los módulos hayan dejado de funcionar, entre ellos el módulo de red, por lo que hay que entrar por el puerto de debug (no disponible para SolidRun industriales). Se comprueba viendo si hay diferencia entre el nombre que resulta al hacer
+uname -a
+ls /lib/modules/...
+
+Se soluciona creando una carpeta de módulos con el nuevo nombre y copiando (no moviendo) los módulos de /lib/modules/... (la vieja) a la nueva
+
+
+Habilitar / deshabilitar opciones de compilación de un paquete
+--------------------------------------------------------------
+- hacer el do_configure del paquete. Generará la ruta .../tmp/work/.../nombre-del-paquete/version-de-git/git
+- en esa ruta habrá un ejecutable 'configure', ejecutar ./configure --help para ver las opciones de compilación que tiene el paquete
+- localizada la opción, hay que meterla en la receta de yocto
+- comprobar cómo se está haciendo el do_configure en la receta base y las bbappend que pueda haber, si lo hay. Si no, se estará haciendo el básico y seguramente se pueda añadir el argumento a los CCFLAGS añadiéndolo a PACKAGECONFIG de la siguiente manera:
+
+- ejecutar el do_configure y ver que se ha incluido la opción de compilación deseada, se puede comprobar en:
+  - .../tmp/work/.../nombre-del-paquete/version-de-git/temp/do_configure.log: el log generado
+  - .../tmp/work/.../nombre-del-paquete/version-de-git/build/config.log: el resumen de configuración de compilación
+
+
+Modificar parametros de configuracion del kernel
+------------------------------------------------
+bitbake -c menuconfig linux-imx
+
+# Disable logo
+Device drivers > Graphics support -> bootup logo
+Save
+Replace original kernel config (or already customized one: ../../meta-dasgate/recipes-kernel/linux/linux-imx/sr_imx_v8_defconfig)
+
+
+
+Run yocto build from docker
+---------------------------
+TOKEN="paste here the personal access token to the gitlab registry"
+echo "$TOKEN" | docker login registry.gitlab.com/dasgroup/veridas/embedded-team/yocto-solidrun -u jetxeberria-dasnano --password-stdin
+docker run -it -v /home/jetxeberria/yocto/:/builder/yocto -v /home/jetxeberria/projects/dasgroup/veridas/embedded-team/yocto-solidrun/:/builder/yocto-solidrun -v /tmp:/tmp /mnt:/mnt registry.gitlab.com/dasgroup/veridas/embedded-team/yocto-solidrun/yocto-python3.8:0.4.0 /bin/bash
+
+
+Mount encrypted rootfs
+-------------------------
+- Build image with yocto
+- Extract mender artifact
+cd ~/yocto/mender
+cp /yocto/yocto-solidrun/build/dasgate_orin-nano-a603_prod_encrypt/build/tmp/deploy/images/orin-nano-4g-a603/core-dasgate-orin-nano-4g-a603.mender .
+tar -xf ./core-dasgate-orin-nano-4g-a603.mender
+cd data
+tar -xzf 0000.tar.gz
+- Decrypt rootfs
+sudo cryptsetup luksOpen --type luks ~/yocto/mender/data/system_root_encrypted.img_ext my_encrypted_image
+Enter passphrase, get it from
+dlt vault-login
+vault kv get --field=key kv/dasgate/terminal/orin-nano/disk_default_encryption_key
+- A new device will appear in   you can mount
+sudo mkdir /mnt/test_artifact
+sudo chown jetxeberria:jetxeberria /mnt/test_artifact
+mount /dev/mapper/my_encrypted_image /mnt/test_artifact
+
+
+
+
+===================================
+make patch
+===================================
+git add
+git commit -m ... -s
+git format-patch -1 HEAD
+
+===================================
+Configurar i.MX8M Plus SOM
+===================================
+Flash SD
+----------------
+connect SD
+identify SD device with dmesg, typically /dev/mmcblk0
+cd ~/projects/dasgroup/dasgate/dos/build/dasgate_solidrun_kirkstone
+zstd -d -c build/tmp/deploy/images/imx8mpsolidrun/core-dasgate-imx8mpsolidrun-20230421120427.rootfs.wic.zst | sudo dd of=/dev/mmcblk0 bs=1M
+sync
+extract uSD and plug again
+verify there are 2 partitions, boot and root
+
+Boot from SD
+-------------
+- Plugin flashed SD
+- Set PINs to boot from uSD
+
+Flash eMMC
+----------------
+- Set PINs to boot from eMMC. It's empty by default. If can't find an u-boot in eMMC, fallbacks to boot from Serial Downloader.
+
+- Download mfgtools repository to have the list of tasks to be run
+git clone https://github.com/nxp-imx/mfgtools.git
+
+- Flash eMMC
+
+- normal flash
+sudo uuu -V -b ~/projects/third_party_repositories/mfgtools/uuu/emmc_burn_all.lst /home/jetxeberria/projects/dasgroup/veridas/embedded-team/yocto-solidrun/build/dasgate_solidrun_kirkstone/build/tmp/deploy/images/imx8mpsolidrun/imx-boot-imx8mpsolidrun-sd.bin-flash_evk /home/jetxeberria/projects/dasgroup/veridas/embedded-team/yocto-solidrun/build/dasgate_solidrun_kirkstone/build/tmp/deploy/images/imx8mpsolidrun/core-dasgate-imx8mpsolidrun-20230516090223.rootfs.wic.zst
+
+
+- testing
+sudo uuu -o ./uuu_output.txt -V -b /home/jetxeberria/projects/dasgroup/dasgate/shipyard/resources/get_mac.lst /home/jetxeberria/projects/dasgroup/veridas/embedded-team/yocto-solidrun/build/dasgate_solidrun_kirkstone/build/tmp/deploy/images/imx8mpsolidrun/imx-boot-imx8mpsolidrun-sd.bin-flash_evk  /home/jetxeberria/projects/dasgroup/veridas/embedded-team/yocto-solidrun/build/dasgate_solidrun_kirkstone/build/tmp/deploy/images/imx8mpsolidrun/core-dasgate-imx8mpsolidrun-20230516090223.rootfs.wic.zst
+
+
+Boot from eMMC
+--------------
+- Preliminar: Flash eMMC
+- Set PINs to boot from eMMC
+
+Login from serial port
+----------------------
+- Install minicom
+- Add group dialout to user to avoid using sudo to launch minicom
+- Plug microUSB cable to debug port
+- Identify connected port with dmesg, typically ttyUSB0
+- Run minicom to that port minicom -D /dev/ttyUSB0
+- Power on SolidRun
+- Login with root. To do so, debug-tweaks must be configured in the Yocto recipe. Users login is just allowed via SSH
+
+==========================
+Jetson Orin
+
+Flash troubleshooting
+---------------------
+A common problem:
+
+When running:
+cd /usr/local/lib/python3.8/site-packages/shipyard/resources/nvidia/jetson_orin
+python3 tegraflash.py --chip 0x23 --skipuid --applet mb1_t234_prod.bin --dev_params tegra234-br-bct-diag-boot.dts --cfg readinfo_t234_min_prod.xml --device_config tegra234-mb1-bct-device-p3767-0000.dts --misc_config tegra234-mb1-bct-misc-p3767-0000.dts --bins mb2_applet applet_t234.bin --cmd 'dump eeprom cvm /tmp/tmpndw2fazh; reboot recovery'
+
+Get
+[   0.2610 ] Boot Rom communication
+[   0.2623 ] tegrarcm_v2 --new_session --chip 0x23 0 --uid --download bct_br br_bct_BR.bct --download mb1 mb1_t234_prod_aligned_sigheader.bin.encrypt --download psc_bl1 psc_bl1_t234_prod_aligned_sigheader.bin.encrypt --download bct_mb1 mb1_bct_MB1_sigheader.bct.encrypt
+Error: Return value 8
+
+After running:
+./tegrarcm_v2 --new_session --chip 0x23 0 --uid --download bct_br br_bct_BR.bct --download mb1 mb1_t234_prod_aligned_sigheader.bin.encrypt --download psc_bl1 psc_bl1_t234_prod_aligned_sigheader.bin.encrypt --download bct_mb1 mb1_bct_MB1_sigheader.bct.encrypt
+
+
+==========================
+shipyard
+------------------------
+run shipyard in docker
+make docker-build
+SHIPYARD_ENV=work REPOSITORY_USER=$NEXUS_DASNANO_USER REPOSITORY_PASSWORD=$NEXUS_DASNANO_PASSWORD docker compose -f docker/docker-compose.yml run --rm -u 0 shipyard
+
+
+Log in running docker by name
+---------------------
+In this case name = dasnano-shipyard
+docker exec -it $(docker ps --format "{{.Names}}" --filter ancestor=dasnano-shipyard) /bin/bash
+
+remove device from ship
+-----------------------
+1 - generate certificate to log-in couchdb: https://dasgroup.gitlab.io/veridas/dasgate-team/docs/operations/contributing/contributing_generate_contributor_certificate/
+
+2 - log-in couchdb (password in vault dasgate/cloud/couchdb/play/admin):
+  - play: https://tenant.db.ci-srv.das-gate.com:8984/_utils/#login
+  - work: https://tenant.db.work-srv.das-gate.com:8984/_utils/#login
+  - live: https://tenant.db.srv.das-gate.com:8984/_utils/#login
+
+3 - Access database 'devices':
+  play: https://tenant.db.ci-srv.das-gate.com:8984/_utils/#database/devices/_all_docs
+  work: https://tenant.db.work-srv.das-gate.com:8984/_utils/#database/devices/_all_docs
+  live: https://tenant.db.srv.das-gate.com:8984/_utils/#database/devices/_all_docs
+
+
+get ship token
+-----------------------
+
+curl -X POST "TOKEN_ENDPOINT" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  --data-urlencode "grant_type=password" \
+  --data-urlencode "client_id=shipyard" \
+  --data-urlencode "username=YOUR_USER" \
+  --data-urlencode 'password=YOUR_PASSWORD'
+
+
+curl -X POST "https://iam.ci-srv.das-gate.com/auth/realms/ship/protocol/openid-connect/token" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  --data-urlencode "grant_type=password" \
+  --data-urlencode "client_id=shipyard" \
+  --data-urlencode "username=jetxeberria" \
+  --data-urlencode 'password=b)p->+rsJo2ueqn%%@CvXGkU!A!}>}'
+
+curl -X POST "https://iam.srv.das-gate.com/auth/realms/ship/protocol/openid-connect/token" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  --data-urlencode "grant_type=password" \
+  --data-urlencode "client_id=shipyard" \
+  --data-urlencode "username=jetxeberria" \
+  --data-urlencode 'password=b)p->+rsJo2ueqn%%@CvXGkU!A!}>}'
+
+get devices
+-----------------------
+
+curl -H 'Authorization: Bearer YOUR_TOKEN' https://ship.lb.ci-ops.das-gate.com/devices
+
+curl -H 'Authorization: Bearer eyJhbGciOiJSUzI1NiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICJrRnp2eXlJWG5Qcm9kRHRHZVEwV0VfNDJEel9QT1NDZ2wwQzdrXzg2a3VRIn0.eyJleHAiOjE3NDQwNDczMzcsImlhdCI6MTc0NDA0NzE1NywianRpIjoiZjU5MWU1MzItN2IyNi00ZDRlLTlmNGYtNmIwZWU2MDkxZTIyIiwiaXNzIjoiaHR0cHM6Ly9pYW0uY2ktc3J2LmRhcy1nYXRlLmNvbS9hdXRoL3JlYWxtcy9zaGlwIiwiYXVkIjoiYWNjb3VudCIsInN1YiI6IjE5ZDc1NzNlLTIxYjctNDNhZC1iODA4LTM2MzhkNzY0ZTMxMSIsInR5cCI6IkJlYXJlciIsImF6cCI6InNoaXB5YXJkIiwic2Vzc2lvbl9zdGF0ZSI6ImFjZjY1NzE4LTc1ZjUtNDg1My04NjFkLTEzMGVkMjhlYzY3YyIsImFjciI6IjEiLCJyZWFsbV9hY2Nlc3MiOnsicm9sZXMiOlsic2hpcHBlciIsImRlZmF1bHQtcm9sZXMtc2hpcCIsIm9mZmxpbmVfYWNjZXNzIiwidW1hX2F1dGhvcml6YXRpb24iLCJvcGVyYXRvciJdfSwicmVzb3VyY2VfYWNjZXNzIjp7ImFjY291bnQiOnsicm9sZXMiOlsibWFuYWdlLWFjY291bnQiLCJtYW5hZ2UtYWNjb3VudC1saW5rcyIsInZpZXctcHJvZmlsZSJdfX0sInNjb3BlIjoiZW1haWwgcHJvZmlsZSIsInNpZCI6ImFjZjY1NzE4LTc1ZjUtNDg1My04NjFkLTEzMGVkMjhlYzY3YyIsImVtYWlsX3ZlcmlmaWVkIjp0cnVlLCJyb2xlcyI6WyJzaGlwcGVyIiwiZGVmYXVsdC1yb2xlcy1zaGlwIiwib2ZmbGluZV9hY2Nlc3MiLCJ1bWFfYXV0aG9yaXphdGlvbiIsIm9wZXJhdG9yIl0sInByZWZlcnJlZF91c2VybmFtZSI6ImpldHhlYmVycmlhIiwiZ2l2ZW5fbmFtZSI6IiIsImZhbWlseV9uYW1lIjoiIiwiZW1haWwiOiJqZXR4ZWJlcnJpYUB2ZXJpZGFzLmNvbSJ9.WthVhDdktvNK_SaGb5i56-_KgrkAcu05ok15R-Bmu_6tvuINoX6SJ4guzg7OjVwjx3WtYaX2nURdw2nVqtrZrPJkzGHZEpRDnV_WifWk0E6Vrpp141SwmJClNFuY9S-NW78b6uJPJiROfSoAi2Y8H7FMtsQIe4pOJNAYDuuLnNYXgb2r434wlYDTtihydtnEtoTTDg-Pish-nJ78Uzv3CZalodKChBm4uk_mzHIhEv2Mfhl9vOnxvVuN9q63z7_5D1jVWQxknhBme1v_lpSs1uBbS-Y8bGu0AR-jmVLbwI1lwggtH3P7XoApLreMu-tmM2pGaAgzTAEGrkvtA4zWQA' https://ship.lb.ci-ops.das-gate.com/devices
+
+
+========================
+See uboot commands from linux console
+----------------------
+
+sudo fw_printenv
+sudo fw_setenv fdtfile sr-imx8mp-mate.dtb
+
+
+========================
+Mender
+------------------------
+Change mender server
+------------------------
+Modify the server url from /data/mender/mender.conf
+Modify the tenant token from /etc/mender/mender.conf (Requires remount)
+Restart mender-client service
+
+
+==================================
+Facial-team cheatsheet
+==================================
+
+Download pip package from Jfrog
+-----------------------------------
+PIP_EXTRA_INDEX_URL=https://$ARTIFACTORY_USER:$ARTIFACTORY_PASSWORD@rt.corp.veridas.com/artifactory/api/pypi/python/simple python3.8 -m pip install daslog
+
+Connect to calculon
+-------------------
+ssh jetxeberria@calculon01
+pass: LDAP
+
+Mount calculon scratch on your computer
+---------------------------------------
+https://docs.corp.veridas.com/engineering/tools/cluster/getting-started/#mount-scratch-on-your-computer
+
+- alias to mount calculon:
+mount_scratch
+
+Quantize model using onnx2tf
+----------------------------
+onnx2tf -i model_file.onnx --output_integer_quantized_tflite --quant_type per-channel --input_output_quant_dtype int8
+
+Run janus tests
+---------------
+- mount calculon:
+janus workflow mount-volumes
+
+- run tests:
+make test
+
+Run janus experiment: https://gitlab.com/dasgroup/veridas/face-team/toolboxes-and-trainers/janus/-/blob/master/docs/jwfv2.md
+--------------------
+- Go to janus repo
+cd ~/projects/dasgroup/veridas/face-team/toolboxes_and_trainers/janus
+
+- Load janus bash environment:
+source janus/scripts/load-venv-cache.sh
+
+- Activate janus python environment:
+activate (alias of source ${PWD}/.tox/$NAME/bin/activate)
+
+- Run experiment:
+janus workflow run-v2 janus.workflows.experiments.exp_901.RunExp901 --dry-run
+
+
+Force rebuild an artifact
+-------------------------
+
+Remove on-hold tasks from calculon
+----------------------------------
+
+condor_rm $(condor_q -hold -json | jq .[].ClusterId)
+
+Add job to calculon
+----------------------------------
+condor_submit myjob.sub
+condor_ssh_to_job JOB_ID
+
+Run yocto build with calculon
+----------------------------------
+Considerations:
+- Repository must be a git repository, with an ".git" folder. You can simply run "git init" if you've copied the code
+- Add job to calculon & ssh to job
+- Export environment vars:
+    - Export build common vars
+export SSTATE_DIR=/tmp/yocto-solidrun/build/${BUILD_NAME}/build/sstate
+export SSTATE_MIRRORS="file://.* file:///mnt/embedded/yocto/sstate/PATH"
+export DL_DIR=/mnt/embedded/yocto/downloads
+export TMPDIR=/tmp/yocto-solidrun/build/${BUILD_NAME}/build/tmp
+    - Export build specific vars
+export BUILD_NAME=dasgate_orin-nano-a603_prod_encrypt
+export DISK_ENCRYPTION_KEY= [Vault] dasgate/terminal/orin-nano/disk_default_encryption_key
+export MENDER_TENANT_TOKEN=""
+export MENDER_ARTIFACT_NAME="no0011-b0001"
+export MENDER_ARTIFACT_SIGNING_KEY="/tmp/private.key"
+
+* /tmp/private.key is created with:   vault kv get --field=PRIVATE_KEY kv/dasgate/terminal/sum/signatures > /tmp/private.key
+
+- Create environment
+virtualenv -p python3.8 /tmp/venv
+source /tmp/venv/bin/activate
+pip install kas
+
+- Copy & configure repository to build
+cp -r ~/yocto-solidrun /tmp
+cd /tmp/yocto-solidrun
+mkdir -p build/${BUILD_NAME}
+cd /tmp/yocto-solidrun/build/${BUILD_NAME}
+
+- Launch kas shell
+kas shell ../../kas/${BUILD_NAME}.yml
+
+- Launch bitbake build
+cd /tmp/yocto-solidrun/build/${BUILD_NAME}
+bitbake -c build core-dasgate
+
+=================================
+embeblue reader diagnosis
+=================================
+ping 10.0.0.99
+
+access:
+
+ssh embeblue@10.0.0.99
+password in vault veridas/smart_module
+
+diagnosis:
+netstat
+
+
+=============================
+Ship authentication
+=============================
+- Log in IAM Ship realm (request user creation to an IAM master such as irodriguez)
+- Get token and use it in the header request for ship
+
+=============================
+docker clean
+=============================
+#!/bin/bash
+
+# This script cleans up stopped containers, unused images, and unused volumes in Docker.
+
+# Function to remove stopped containers
+clean_stopped_containers() {
+    echo "Removing stopped containers..."
+    docker container prune -f
+}
+
+# Function to remove unused images
+clean_unused_images() {
+    echo "Removing unused images..."
+    docker image prune -f
+}
+
+# Function to remove all unused images
+clean_all_images() {
+    echo "Removing all images..."
+    docker rmi $(docker images -q) -f
+}
+
+# Function to remove unused volumes
+clean_unused_volumes() {
+    echo "Removing unused volumes..."
+    docker volume prune -f
+}
+
+# Main cleanup function
+cleanup_all() {
+    clean_stopped_containers
+    clean_unused_images
+    clean_unused_volumes
+    echo "Docker cleanup completed."
+}
+
+# Execute the cleanup function
+cleanup_all
+
+
+Preparación de PC
+- Formateo IT
+- 1st log in, new password will be requested, however, must have at least 8 characters
+- update password
+  $ sudo su
+  $ passwd jetxeberria
+  $ Open new console and verify log in
+  $ reboot
+
+- log in google
+  - install git
+    $ sudo apt update
+    $ sudo apt-get install git xclip
+
+  - clone github hello_world repository
+    - create ssh key pair for github
+      $ ssh-keygen -o -t ed25519 -C "jetxeberria@veridas.com" (use no passphrase, rename the filename at creation time to avoid overwriting due to having default name)
+      $ cat $HOME/.ssh/id_ed25519....pub | xclip -r (copiada para pegar con botón central del ratón, no con CTRL+V)
+      $ firefox https://github.com/settings/ssh/new
+
+    - clone repo
+      $ mkdir -p ~/projects/test_repositories
+      $ git clone https://github.com/jetxeberria/hello_world
+
+  - install keepassxc
+    $ sudo add-apt-repository ppa:phoerious/keepassxc
+    $ sudo apt update
+    $ sudo apt-get install keepassxc
+
+  - access google pass
+    $ keepassxc ~/projects/test_repositories/hello_world/lana
+
+- install utils
+  $ sudo apt install terminator
+
+- clone repositories
+  - create ssh key pair for gitlab
+    $ ssh-keygen -o -t ed25519 -C "jetxeberria@veridas.com" (use no passphrase, rename the filename at creation time to avoid overwriting due to having default name)
+    $ cat $HOME/.ssh/id_ed25519....pub | xclip -r (copiada para pegar con botón central del ratón, no con CTRL+V)
+    $ firefox https://gitlab.com/-/user_settings/ssh_keys
+
+  - clone
+    $ mkdir -p $HOME/projects/dasgroup/veridas/dasgate-team
+    $ cd $HOME/projects/dasgroup/veridas/
+    $ git clone
+
+- follow dasgate development toolbelt to install all tools
+- build environment, pass tests
+- activate github copilot
+- miscelaneos
+  - set context terminal lines to 5000
+
+
+
+
+navigator.geolocation.getCurrentPosition = function(success) {
+  success({
+    coords: {
+      latitude: 42.7756,
+      longitude: -1.6346,
+      accuracy: 10
+    },
+    timestamp: Date.now()
+  });
+};

@@ -17,17 +17,20 @@ lantoki/
 │ │ ├── general.instructions.md
 │ │ └── linux-dev.instructions.md
 │ │
-│ ├── prompts/ \# Global slash commands (e.g., /refactor)
-│ │ ├── refactor.prompt.md
+│ ├── prompts/ \# Global slash commands
+│ │ ├── render_diagram.prompt.md
 │ │ └── pr-review.prompt.md
 │ │
-│ ├── skills/ \# Global skills commands (e.g., /domain-logic-extractor)
+│ ├── skills/ \# Global skills commands
 │ │ └── domain-logic-extractor/
-│ │ └── SKILL.md
+│ │ · └── SKILL.md
 │ │
-│ └── mcp/ \# Global tool connections (Databases, local APIs, etc.)
-│ ├── vscode-mcp.json \# For GitHub Copilot Chat in VS Code
-│ └── cli-mcp-config.json \# For GitHub Copilot CLI (schema differs slightly)
+│ ├── mcp/ \# Global tool connections (Databases, local APIs, etc.)
+│ │ ├── vscode-mcp.json \# For GitHub Copilot Chat in VS Code
+│ │ └── cli-mcp-config.json \# For GitHub Copilot CLI (schema differs slightly)
+│ │
+│ └── agents/ \# Global tool connections (Databases, local APIs, etc.)
+│ · └── AGENTS.md \# For all harnesses
 │
 └── project-level/ \# Templates to symlink into specific codebases
 │ │
@@ -35,7 +38,7 @@ lantoki/
 │ │ ├── copilot-instructions.md \# General project architecture and rules
 │ │ └── AGENTS.md \# Always-on instructions for autonomous agents
 │ │
-│ ├── scoped-instructions/ \# Path-specific rules (requires YAML frontmatter)
+│ ├── scoped-instructions/ \# Path-specific rules
 │ │ ├── react.instructions.md \# e.g., applyTo: \["\*\*/components/\*\*/\*.tsx"\]
 │ │ ├── python.instructions.md \# e.g., applyTo: \["\*\*/\*.py"\]
 │ │ └── tests.instructions.md \# e.g., applyTo: \["\*\*/tests/\*\*"\]

@@ -16,6 +16,7 @@ classifiers = [
 ]
 
 dependencies = [
+    "dynaconf>=3.2.0",
     "structlog>=25.5.0",
     "typer[all]",
 ]

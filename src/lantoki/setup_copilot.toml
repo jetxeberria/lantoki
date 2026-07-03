@@ -1,0 +1,17 @@
+[user]
+instructions_source_dir = "{sync_root}/user-level/instructions"
+prompts_source_dir = "{sync_root}/user-level/prompts"
+vscode_mcp_source = "{sync_root}/user-level/mcp/vscode-mcp.json"
+cli_mcp_source = "{sync_root}/user-level/mcp/cli-mcp-config.json"
+vscode_user_dir = "{home}/.config/Code/User"
+copilot_cli_dir = "{home}/.copilot"
+
+[repo]
+copilot_instructions_source = "{sync_root}/project-level/global-repo/copilot-instructions.md"
+agents_source = "{sync_root}/project-level/global-repo/AGENTS.md"
+shared_mcp_source = "{sync_root}/project-level/project-mcp/shared-mcp.json"
+scoped_instructions_source_dir = "{sync_root}/project-level/scoped-instructions"
+prompt_source_dir = "{sync_root}/project-level/project-prompts"
+skill_source_dir = "{sync_root}/project-level/project-skills"
+github_dir = "{target_repo}/.github"
+vscode_dir = "{target_repo}/.vscode"
