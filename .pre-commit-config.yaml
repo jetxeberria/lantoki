@@ -1,0 +1,26 @@
+# Checks run before every push (installed by `just setup-git`).
+# Local hooks reuse the project's own just recipes, so versions come from uv.lock.
+default_install_hook_types: [pre-push]
+default_stages: [pre-push]
+
+repos:
+  - repo: local
+    hooks:
+      - id: format
+        name: ruff format (check only)
+        entry: just format --check
+        language: system
+        pass_filenames: false
+        always_run: true
+      - id: lint
+        name: ruff lint
+        entry: just lint
+        language: system
+        pass_filenames: false
+        always_run: true
+      - id: test
+        name: pytest with coverage
+        entry: just test
+        language: system
+        pass_filenames: false
+        always_run: true
