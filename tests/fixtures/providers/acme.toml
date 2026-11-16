@@ -1,0 +1,99 @@
+# A fictional provider that exists only for tests. It proves that a new provider needs
+# nothing but a profile file (PRI-4, QLT-2) and exercises every format.
+
+[provider]
+id = "acme"
+name = "Acme Assistant"
+docs = ["https://example.invalid/acme/docs"]
+verified_with = "0.0.0"
+verified_on = 2026-11-16
+
+[placeholders]
+arguments = "%ARGS%"
+env = "%{name}%"
+
+[tools]
+mcp = "{server}.{tool}"
+
+[tools.map]
+read = ["view"]
+execute = ["shell", "view"]
+
+[cli]
+candidates = ["acme-cli-that-does-not-exist", "{home}/acme/*/acme"]
+
+[[outputs]]
+kind = "instruction"
+scope = "user"
+format = "markdown"
+target = "{home}/.acme/rules/{name}.md"
+[outputs.front_matter]
+title = "{title}"
+summary = "About: {description}"
+globs = { from = "applies_to", transform = "join", sep = ";", default = "*" }
+
+[[outputs]]
+kind = "prompt"
+scope = "user"
+format = "markdown"
+# A folder holding one generated file, linked as a whole (D-011).
+target = "{home}/.acme/commands/{name}"
+file = "COMMAND.md"
+[outputs.front_matter]
+summary = "{description}"
+hint = { from = "argument_hint" }
+allowed = { from = "tools", transform = "tools" }
+user_only = true
+
+[[outputs]]
+kind = "agent"
+scope = "user"
+format = "markdown"
+target = "{home}/.acme/agents/{name}.md"
+[outputs.front_matter]
+name = "{name}"
+tools = { from = "tools", transform = "tools", sep = "," }
+
+[[outputs]]
+kind = "skill"
+scope = "user"
+format = "directory"
+target = "{home}/.acme/skills/{name}"
+
+[[outputs]]
+kind = "mcp"
+scope = "user"
+format = "command"
+apply = ["{cli}", "add", "{name}", "{server_json}"]
+remove = ["{cli}", "rm", "{name}"]
+server = { cmd = "{command}", argv = "{args}", environment = "{env}" }
+
+[[outputs]]
+kind = "repo_instructions"
+scope = "project"
+format = "markdown"
+target = "{repo}/ACME.md"
+
+[[outputs]]
+kind = "instruction"
+scope = "project"
+format = "markdown"
+target = "{repo}/.acme/rules/{name}.md"
+link = "copy"
+[outputs.front_matter]
+globs = { from = "applies_to" }
+
+[[outputs]]
+kind = "skill"
+scope = "project"
+format = "directory"
+target = "{repo}/.acme/skills/{name}"
+
+[[outputs]]
+kind = "mcp"
+scope = "project"
+format = "json"
+target = "{repo}/.acme/mcp.json"
+root_key = "servers"
+document = { version = 1 }
+server = { cmd = "{command}", argv = "{args}", environment = "{env}" }

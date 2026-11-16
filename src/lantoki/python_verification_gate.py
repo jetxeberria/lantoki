@@ -10,14 +10,14 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from mcp.server.fastmcp import FastMCP
+from mcp.server.mcpserver import MCPServer
 
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
 
-mcp = FastMCP("python-verification-gate")
+mcp = MCPServer("python-verification-gate")
 
 _TARGET_RE = re.compile(r"^([A-Za-z0-9_.-]+)\s*:(?!=)")
 _IGNORED_TOP_LEVEL_DIRS = {

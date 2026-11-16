@@ -1,0 +1,19 @@
+# lantoki application settings (loaded by lantoki.config with dynaconf).
+# Every value can be overridden with an environment variable prefixed LANTOKI_
+# (for example LANTOKI_SOURCES_ROOT=/path/to/customizations).
+# Placeholders: {home}, {project_root}, {package_dir}, {xdg_data_home}, {xdg_state_home}.
+
+# Neutral customization sources (SPECIFICATION §5).
+sources_root = "{project_root}/customizations"
+
+# Provider profiles, one TOML file per provider (SPECIFICATION §6).
+providers_dir = "{package_dir}/providers"
+
+# Compiled artifacts that installed symlinks point to (INS-1).
+compiled_dir = "{xdg_data_home}/lantoki/compiled"
+
+# Per-scope manifests of installed targets (INS-3).
+manifests_dir = "{xdg_state_home}/lantoki/manifests"
+
+# Provider ids to install for; empty means every profile found.
+enabled_providers = []

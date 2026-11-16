@@ -6,7 +6,7 @@ current_gid := `id -g $USER`
 current_user := current_uid + ":" + current_gid
 rootdir := justfile_directory()
 
-image_name := env('IMAGE_NAME', 'copier_python_http_generated')
+image_name := env('IMAGE_NAME', 'lantoki')
 image_version := env('IMAGE_VERSION', current_version)
 
 # HELP AND INFORMATION
@@ -80,6 +80,33 @@ setup-git-lfs: check-git-lfs
 setup-git: setup-git-lfs
     @pre-commit install -t pre-push
     @pre-commit run --all-files
+
+# Install lantoki commands (python-verification-gate, lantoki) on PATH, editable
+install-tools:
+    uv tool install --editable --force {{rootdir}}
+
+# LANTOKI (SPECIFICATION §9)
+##############################################################################
+
+# Validate every source and provider profile
+validate *args="":
+    uv run lantoki validate {{args}}
+
+# List providers and the kinds each supports
+providers *args="":
+    uv run lantoki providers {{args}}
+
+# Dry-run: show what `sync-user` would change
+plan-user *args="":
+    uv run lantoki plan user {{args}}
+
+# Install user-level customizations for every provider
+sync-user *args="":
+    uv run lantoki sync user {{args}}
+
+# Install project-level customizations into a repository (--all, --select, --adopt-commands)
+sync-repo path *args="":
+    uv run lantoki sync repo {{path}} {{args}}
 
 # Set up complete project environment
 setup: setup-env
@@ -198,7 +225,7 @@ format *args="":
 # Lint code with ruff (pass extra args)
 lint *args="":
     #!/usr/bin/env bash
-    if ! uv run ruff check {{args}} src; then
+    if ! uv run ruff check {{args}} src tests; then
         echo ""
         echo "Linting failed! Review the changes and/or use --fix and/or --unsafe-fixes for auto-repair"
         echo "Examples:"
@@ -209,7 +236,7 @@ lint *args="":
 
 # Run security analysis (pass extra args)
 security *args="":
-    uv run bandit -v -r src/copier_python_http_generated {{args}}
+    uv run bandit -v -r src/lantoki {{args}}
 
 # Run all code quality checks
 check: format lint

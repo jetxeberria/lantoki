@@ -4,29 +4,38 @@ import importlib.util
 import itertools
 import subprocess
 import sys
+from collections.abc import Callable
 from pathlib import Path
 from types import ModuleType
+from typing import TypeVar
 
 import pytest
 
 
 _MODULE_COUNTER = itertools.count()
+_ToolFunction = TypeVar("_ToolFunction", bound=Callable[..., object])
 
 
-class FakeFastMCP:
+class FakeMCPServer:
+    """In-memory stand-in for MCPServer that records registered tools and run calls."""
+
     def __init__(self, name: str) -> None:
+        """Store the server name and start with empty call records."""
         self.name = name
         self.registered_tools: list[str] = []
         self.run_calls: list[str] = []
 
-    def tool(self):
-        def decorator(function):
+    def tool(self) -> Callable[[_ToolFunction], _ToolFunction]:
+        """Return a decorator that records the tool name and leaves the function unchanged."""
+
+        def decorator(function: _ToolFunction) -> _ToolFunction:
             self.registered_tools.append(function.__name__)
             return function
 
         return decorator
 
     def run(self, transport: str) -> None:
+        """Record the transport the server was started with."""
         self.run_calls.append(transport)
 
 
@@ -42,14 +51,14 @@ def _completed_process(
 def _load_python_verification_gate_module(monkeypatch: pytest.MonkeyPatch) -> ModuleType:
     fake_mcp_module = ModuleType("mcp")
     fake_server_module = ModuleType("mcp.server")
-    fake_fastmcp_module = ModuleType("mcp.server.fastmcp")
-    fake_fastmcp_module.FastMCP = FakeFastMCP
-    fake_server_module.fastmcp = fake_fastmcp_module
+    fake_mcpserver_module = ModuleType("mcp.server.mcpserver")
+    fake_mcpserver_module.MCPServer = FakeMCPServer
+    fake_server_module.mcpserver = fake_mcpserver_module
     fake_mcp_module.server = fake_server_module
 
     monkeypatch.setitem(sys.modules, "mcp", fake_mcp_module)
     monkeypatch.setitem(sys.modules, "mcp.server", fake_server_module)
-    monkeypatch.setitem(sys.modules, "mcp.server.fastmcp", fake_fastmcp_module)
+    monkeypatch.setitem(sys.modules, "mcp.server.mcpserver", fake_mcpserver_module)
 
     repo_root = Path(__file__).resolve().parents[1]
     module_path = repo_root / "src" / "lantoki" / "python_verification_gate.py"
@@ -70,7 +79,38 @@ def _stub_command_lookup(
     monkeypatch: pytest.MonkeyPatch,
     command_map: dict[str, str],
 ) -> None:
-    monkeypatch.setattr(gate_module.shutil, "which", lambda command: command_map.get(command))
+    monkeypatch.setattr(gate_module.shutil, "which", command_map.get)
+
+
+def _stub_subprocess_run(
+    gate_module: ModuleType,
+    monkeypatch: pytest.MonkeyPatch,
+    expected_cwd: Path,
+    stdout: str = "",
+    *,
+    stdout_by_command: dict[tuple[str, ...], str] | None = None,
+    expect_virtual_env_removed: bool = False,
+) -> None:
+    """Replace subprocess.run with a fake that checks the call and returns canned output.
+
+    With ``stdout_by_command``, only the listed commands are allowed and each returns its
+    own output; any other command fails the test.
+    """
+
+    def fake_run(command: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        assert kwargs.get("cwd") == expected_cwd
+        if expect_virtual_env_removed:
+            env = kwargs.get("env")
+            assert isinstance(env, dict)
+            assert "VIRTUAL_ENV" not in env
+
+        if stdout_by_command is None:
+            return _completed_process(command, stdout=stdout)
+        if tuple(command) not in stdout_by_command:
+            raise AssertionError(command)
+        return _completed_process(command, stdout=stdout_by_command[tuple(command)])
+
+    monkeypatch.setattr(gate_module.subprocess, "run", fake_run)
 
 
 @pytest.fixture
@@ -89,18 +129,15 @@ def test_given_format_recipe_when_running_format_check_then_just_runner_is_used(
 
     _stub_command_lookup(gate_module, monkeypatch, {"just": "/usr/bin/just"})
 
-    def fake_run(command, cwd=None, check=False, capture_output=False, text=False, env=None):
-        assert cwd == repo_path.resolve()
-
-        if command == ["/usr/bin/just", "--list", "--unsorted"]:
-            return _completed_process(command, stdout="format\n")
-
-        if command == ["/usr/bin/just", "format"]:
-            return _completed_process(command, stdout="formatted\n")
-
-        raise AssertionError(command)
-
-    monkeypatch.setattr(gate_module.subprocess, "run", fake_run)
+    _stub_subprocess_run(
+        gate_module,
+        monkeypatch,
+        repo_path.resolve(),
+        stdout_by_command={
+            ("/usr/bin/just", "--list", "--unsorted"): "format\n",
+            ("/usr/bin/just", "format"): "formatted\n",
+        },
+    )
 
     result = gate_module.run_format_check(str(repo_path))
 
@@ -123,13 +160,13 @@ def test_given_lint_target_when_running_ruff_check_then_make_runner_is_used(
 
     _stub_command_lookup(gate_module, monkeypatch, {"make": "/usr/bin/make"})
 
-    def fake_run(command, cwd=None, check=False, capture_output=False, text=False, env=None):
-        assert cwd == repo_path.resolve()
-        assert env is not None
-        assert "VIRTUAL_ENV" not in env
-        return _completed_process(command, stdout="linted\n")
-
-    monkeypatch.setattr(gate_module.subprocess, "run", fake_run)
+    _stub_subprocess_run(
+        gate_module,
+        monkeypatch,
+        repo_path.resolve(),
+        "linted\n",
+        expect_virtual_env_removed=True,
+    )
 
     result = gate_module.run_ruff_check(str(repo_path))
 
@@ -156,13 +193,13 @@ def test_given_project_virtual_environment_when_running_bandit_then_local_runner
 
     _stub_command_lookup(gate_module, monkeypatch, {})
 
-    def fake_run(command, cwd=None, check=False, capture_output=False, text=False, env=None):
-        assert cwd == repo_path.resolve()
-        assert env is not None
-        assert "VIRTUAL_ENV" not in env
-        return _completed_process(command, stdout="secure\n")
-
-    monkeypatch.setattr(gate_module.subprocess, "run", fake_run)
+    _stub_subprocess_run(
+        gate_module,
+        monkeypatch,
+        repo_path.resolve(),
+        "secure\n",
+        expect_virtual_env_removed=True,
+    )
 
     result = gate_module.run_bandit(str(repo_path))
 
@@ -186,11 +223,7 @@ def test_given_uv_repository_when_running_mypy_then_uv_with_runner_is_used(
 
     _stub_command_lookup(gate_module, monkeypatch, {"uv": "/usr/bin/uv"})
 
-    def fake_run(command, cwd=None, check=False, capture_output=False, text=False, env=None):
-        assert cwd == repo_path.resolve()
-        return _completed_process(command, stdout="typed\n")
-
-    monkeypatch.setattr(gate_module.subprocess, "run", fake_run)
+    _stub_subprocess_run(gate_module, monkeypatch, repo_path.resolve(), "typed\n")
 
     result = gate_module.run_mypy(str(repo_path))
 
@@ -221,11 +254,7 @@ def test_given_repo_launcher_file_when_running_pytest_then_repo_launcher_is_used
 
     _stub_command_lookup(gate_module, monkeypatch, {launcher_name: f"/usr/bin/{launcher_name}"})
 
-    def fake_run(command, cwd=None, check=False, capture_output=False, text=False, env=None):
-        assert cwd == repo_path.resolve()
-        return _completed_process(command, stdout="tested\n")
-
-    monkeypatch.setattr(gate_module.subprocess, "run", fake_run)
+    _stub_subprocess_run(gate_module, monkeypatch, repo_path.resolve(), "tested\n")
 
     result = gate_module.run_pytest(str(repo_path))
 
@@ -245,11 +274,7 @@ def test_given_global_executable_when_running_format_check_then_global_runner_is
 
     _stub_command_lookup(gate_module, monkeypatch, {"ruff": "/usr/bin/ruff"})
 
-    def fake_run(command, cwd=None, check=False, capture_output=False, text=False, env=None):
-        assert cwd == repo_path.resolve()
-        return _completed_process(command, stdout="checked\n")
-
-    monkeypatch.setattr(gate_module.subprocess, "run", fake_run)
+    _stub_subprocess_run(gate_module, monkeypatch, repo_path.resolve(), "checked\n")
 
     result = gate_module.run_format_check(str(repo_path))
 
@@ -314,7 +339,7 @@ def test_given_alias_tool_when_called_then_canonical_tool_is_used(
 ) -> None:
     sentinel_result = {"tool": canonical_name}
 
-    monkeypatch.setattr(gate_module, canonical_name, lambda repository_path=".": sentinel_result)
+    monkeypatch.setattr(gate_module, canonical_name, lambda _repository_path=".": sentinel_result)
 
     result = getattr(gate_module, alias_name)("/tmp/repository")
 

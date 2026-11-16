@@ -1,1 +1,0 @@
-/home/jetxeberria/projects/test_repositories/lantoki/src/lantoki/copilot-instructions-set/project-level/scoped-instructions/tests.instructions.md

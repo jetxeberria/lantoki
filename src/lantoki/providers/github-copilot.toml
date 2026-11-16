@@ -1,0 +1,137 @@
+# Provider profile: GitHub Copilot (VS Code Copilot Chat and the Copilot CLI).
+# Schema: docs/provider-profiles.md. Facts and evidence: docs/SPECIFICATION.md §11.
+
+[provider]
+id = "github-copilot"
+name = "GitHub Copilot"
+docs = [
+    "https://code.visualstudio.com/docs/copilot/customization/custom-instructions",
+    "https://code.visualstudio.com/docs/copilot/customization/prompt-files",
+    "https://code.visualstudio.com/docs/agents/reference/custom-agent-file-reference",
+    "https://code.visualstudio.com/docs/copilot/customization/agent-skills",
+    "https://code.visualstudio.com/docs/copilot/customization/mcp-servers",
+]
+verified_with = "VS Code docs"
+verified_on = 2026-11-16
+
+[placeholders]
+arguments = "${input:arguments}"
+env = "${{env:{name}}}"
+
+[tools]
+mcp = "{server}/{tool}"
+
+[tools.map]
+read = ["read"]
+search = ["search"]
+edit = ["edit"]
+write = ["edit"]
+execute = ["execute"]
+web_fetch = ["web/fetch"]
+todo = ["todo"]
+subagent = ["agent"]
+
+# ---------------------------------------------------------------- user scope
+
+[[outputs]]
+kind = "instruction"
+scope = "user"
+format = "markdown"
+target = "{home}/.config/Code/User/instructions/{name}.instructions.md"
+[outputs.front_matter]
+name = "{title}"
+description = "{description}"
+applyTo = { from = "applies_to", transform = "join", sep = ", ", default = "**" }
+
+[[outputs]]
+kind = "prompt"
+scope = "user"
+format = "markdown"
+target = "{home}/.config/Code/User/prompts/{name}.prompt.md"
+[outputs.front_matter]
+name = "{title}"
+description = "{description}"
+argument-hint = { from = "argument_hint" }
+tools = { from = "tools", transform = "tools" }
+
+[[outputs]]
+# ~/.copilot is shared by VS Code Copilot and the Copilot CLI.
+kind = "agent"
+scope = "user"
+format = "markdown"
+target = "{home}/.copilot/agents/{name}.agent.md"
+[outputs.front_matter]
+name = "{title}"
+description = "{description}"
+argument-hint = { from = "argument_hint" }
+tools = { from = "tools", transform = "tools" }
+
+[[outputs]]
+kind = "skill"
+scope = "user"
+format = "directory"
+target = "{home}/.copilot/skills/{name}"
+
+[[outputs]]
+# VS Code reads a top-level "servers" key.
+kind = "mcp"
+scope = "user"
+format = "json"
+target = "{home}/.config/Code/User/mcp.json"
+root_key = "servers"
+document = { inputs = [] }
+server = { type = "stdio", command = "{command}", args = "{args}", env = "{env}" }
+
+[[outputs]]
+# The Copilot CLI reads "mcpServers" and needs type "local" and a tools allow-list.
+kind = "mcp"
+scope = "user"
+format = "json"
+target = "{home}/.copilot/mcp-config.json"
+root_key = "mcpServers"
+server = { type = "local", command = "{command}", args = "{args}", env = "{env}", tools = ["*"] }
+
+# ------------------------------------------------------------- project scope
+
+[[outputs]]
+# Copilot reads AGENTS.md as always-on repository instructions.
+kind = "repo_instructions"
+scope = "project"
+format = "markdown"
+target = "{repo}/AGENTS.md"
+
+[[outputs]]
+kind = "instruction"
+scope = "project"
+format = "markdown"
+target = "{repo}/.github/instructions/{name}.instructions.md"
+[outputs.front_matter]
+name = "{title}"
+description = "{description}"
+applyTo = { from = "applies_to", transform = "join", sep = ", ", default = "**" }
+
+[[outputs]]
+kind = "prompt"
+scope = "project"
+format = "markdown"
+target = "{repo}/.github/prompts/{name}.prompt.md"
+[outputs.front_matter]
+name = "{title}"
+description = "{description}"
+argument-hint = { from = "argument_hint" }
+tools = { from = "tools", transform = "tools" }
+
+[[outputs]]
+kind = "skill"
+scope = "project"
+format = "directory"
+target = "{repo}/.github/skills/{name}"
+
+[[outputs]]
+kind = "mcp"
+scope = "project"
+format = "json"
+target = "{repo}/.vscode/mcp.json"
+root_key = "servers"
+document = { inputs = [] }
+server = { type = "stdio", command = "{command}", args = "{args}", env = "{env}" }

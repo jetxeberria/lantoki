@@ -1,7 +1,7 @@
 [project]
 name = "lantoki"
 version = "0.1.0"
-description = "A space to store files useful to configure laptop to work"
+description = "Single entry point for AI coding-assistant customization, mapped to every harness (GitHub Copilot, Claude Code, ...)"
 authors = [{name = "jetxeberria", email = "etxeberria_92@hotmail.com"}]
 license = { file = "LICENSE" }
 readme = "README.md"
@@ -17,8 +17,11 @@ classifiers = [
 
 dependencies = [
     "dynaconf>=3.2.0",
+    "mcp>=2",
+    "pydantic>=2.14.3",
+    "pyyaml>=6.0.3",
     "structlog>=25.5.0",
-    "typer[all]",
+    "typer>=0.12",
 ]
 
 [project.urls]
@@ -28,10 +31,11 @@ Changelog = "https://github.com/jetxeberria/lantoki/-/blob/master/CHANGELOG.md"
 Issues = "https://github.com/jetxeberria/lantoki/-/issues"
 
 [build-system]
-requires = ["uv_build>=0.8.13,<0.9.0"]
+requires = ["uv_build>=0.13.8,<0.14"]
 build-backend = "uv_build"
 [project.scripts]
-cli = "lantoki.cli:app"
+lantoki = "lantoki.cli:app"
+python-verification-gate = "lantoki.python_verification_gate:main"
 
 [dependency-groups]
 dev = [
@@ -44,6 +48,7 @@ dev = [
     "pytest-randomly>=3.15",
     "pytest-xdist>=3.3",
     "ruff>=0.1.11",
+    "tomli-w>=1.2.0",
 ]
 
 docs = [
@@ -112,6 +117,20 @@ task-tags=[
 ignore = [
     "PLR0913",  # too-many-arguments
     "TD003",    # missing-todo-link
+    "COM812",   # missing-trailing-comma: conflicts with ruff format
+    "CPY001",   # missing-copyright-notice: the LICENSE file covers the whole repo
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = [
+    "S101",     # assert is how pytest checks results
+    "S108",     # tmp paths in fixtures are intentional
+    "ARG001",   # pytest fixtures requested only for their side effects
+    "FBT002",   # boolean defaults in test helpers
+    "PLR2004",  # literal expected values in assertions
+    "D103",     # Given-When-Then test names are self-documenting
+    "S603",     # tests run the installer script with sys.executable
+    "PLR0917",  # pytest injects fixtures and parameters positionally
 ]
 
 [tool.ruff.lint.isort]

@@ -1,0 +1,131 @@
+# Provider profile: Claude Code (CLI and the Claude desktop app's Code tab).
+# Schema: docs/provider-profiles.md. Facts and evidence: docs/SPECIFICATION.md §11.
+
+[provider]
+id = "claude-code"
+name = "Claude Code"
+docs = [
+    "https://code.claude.com/docs/en/memory",
+    "https://code.claude.com/docs/en/sub-agents",
+    "https://code.claude.com/docs/en/skills",
+    "https://code.claude.com/docs/en/mcp",
+]
+verified_with = "2.1.317"
+verified_on = 2026-11-16
+
+[placeholders]
+arguments = "$ARGUMENTS"
+env = "${{{name}}}"
+
+[tools]
+mcp = "mcp__{server}__{tool}"
+
+[tools.map]
+read = ["Read"]
+search = ["Grep", "Glob"]
+edit = ["Edit"]
+write = ["Write"]
+execute = ["Bash"]
+web_fetch = ["WebFetch"]
+web_search = ["WebSearch"]
+todo = ["TodoWrite"]
+subagent = ["Agent"]
+
+[cli]
+# The desktop app bundles the CLI under a versioned folder that is not on PATH (PRF-8).
+candidates = ["claude", "{home}/.config/Claude/claude-code/*/*/claude"]
+
+# ---------------------------------------------------------------- user scope
+
+[[outputs]]
+kind = "instruction"
+scope = "user"
+format = "markdown"
+target = "{home}/.claude/rules/{name}.md"
+[outputs.front_matter]
+description = "{description}"
+paths = { from = "applies_to" }
+
+[[outputs]]
+# Claude Code has no prompt files; a user-invoked skill is the equivalent slash command.
+# The skill folder itself is the link, like every other skill (D-011).
+kind = "prompt"
+scope = "user"
+format = "markdown"
+target = "{home}/.claude/skills/{name}"
+file = "SKILL.md"
+[outputs.front_matter]
+name = "{name}"
+description = "{description}"
+argument-hint = { from = "argument_hint" }
+disable-model-invocation = true
+
+[[outputs]]
+kind = "agent"
+scope = "user"
+format = "markdown"
+target = "{home}/.claude/agents/{name}.md"
+[outputs.front_matter]
+name = "{name}"
+description = "{description}"
+tools = { from = "tools", transform = "tools", sep = ", " }
+
+[[outputs]]
+kind = "skill"
+scope = "user"
+format = "directory"
+target = "{home}/.claude/skills/{name}"
+
+[[outputs]]
+# User-scope servers live in ~/.claude.json, which lantoki must not own: register through the CLI.
+kind = "mcp"
+scope = "user"
+format = "command"
+apply = ["{cli}", "mcp", "add-json", "--scope", "user", "{name}", "{server_json}"]
+remove = ["{cli}", "mcp", "remove", "--scope", "user", "{name}"]
+server = { command = "{command}", args = "{args}", env = "{env}" }
+
+# ------------------------------------------------------------- project scope
+
+[[outputs]]
+kind = "repo_instructions"
+scope = "project"
+format = "markdown"
+target = "{repo}/AGENTS.md"
+
+[[outputs]]
+# Path-scoped rules symlinked from outside the project do not load (INS-2, D-007).
+kind = "instruction"
+scope = "project"
+format = "markdown"
+target = "{repo}/.claude/rules/{name}.md"
+link = "copy"
+[outputs.front_matter]
+description = "{description}"
+paths = { from = "applies_to" }
+
+[[outputs]]
+kind = "prompt"
+scope = "project"
+format = "markdown"
+target = "{repo}/.claude/skills/{name}"
+file = "SKILL.md"
+[outputs.front_matter]
+name = "{name}"
+description = "{description}"
+argument-hint = { from = "argument_hint" }
+disable-model-invocation = true
+
+[[outputs]]
+kind = "skill"
+scope = "project"
+format = "directory"
+target = "{repo}/.claude/skills/{name}"
+
+[[outputs]]
+kind = "mcp"
+scope = "project"
+format = "json"
+target = "{repo}/.mcp.json"
+root_key = "mcpServers"
+server = { command = "{command}", args = "{args}", env = "{env}" }
