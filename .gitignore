@@ -1,3 +1,21 @@
+# Python
+.venv/
+.pdm-python
+.pdm-plugins/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+
+# Build
+build/
+dist/
+
+# IDEs
+.vscode/
+
+# --- lantoki entries below (the lines above come from the galtzagorri template) ---
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

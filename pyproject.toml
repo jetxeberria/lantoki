@@ -2,19 +2,22 @@
 name = "lantoki"
 version = "0.1.0"
 description = "Single entry point for AI coding-assistant customization, mapped to every harness (GitHub Copilot, Claude Code, ...)"
-authors = [{name = "jetxeberria", email = "etxeberria_92@hotmail.com"}]
-license = { file = "LICENSE" }
+authors = [
+    {name = "jetxeberria", email = "etxeberria_92@hotmail.com"},
+]
+requires-python = ">=3.15"
 readme = "README.md"
-requires-python = ">=3.12,<3.13"
+license = {text = "MIT"}
 keywords = []
 classifiers = [
     "Development Status :: 1 - Planning",
     "Intended Audience :: Developers",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.15",
 ]
 
+# Runtime dependencies: owned by the project (`just add <package>`)
 dependencies = [
     "dynaconf>=3.2.0",
     "mcp>=2",
@@ -30,27 +33,34 @@ Documentation = "https://github.com/jetxeberria/lantoki#readme"
 Changelog = "https://github.com/jetxeberria/lantoki/-/blob/master/CHANGELOG.md"
 Issues = "https://github.com/jetxeberria/lantoki/-/issues"
 
-[build-system]
-requires = ["uv_build>=0.13.8,<0.14"]
-build-backend = "uv_build"
 [project.scripts]
 lantoki = "lantoki.cli:app"
 python-verification-gate = "lantoki.python_verification_gate:main"
 
 [dependency-groups]
+# Owned by the galtzagorri template: tools its recipes need, as minimum versions.
+# `just update` merges template changes here; do not edit these lines. To need a
+# newer version of one of them, add a higher floor to the `dev` group instead.
+base = [
+    "copier>=9.4",
+    "pre-commit>=4.7",
+    "pytest>=8.3",
+    "ruff>=0.12",
+    "yamllint>=1.35",
+]
+
+# Development dependencies: owned by the project (`just add -dG dev <package>`)
 dev = [
     "bandit>=1.7.0",
     "coverage[toml]>=7.4.0",
-    "pre-commit>=4.2.0",
-    "pytest>=7.4",
     "pytest-cov>=4.1",
     "pytest-html>=4.0",
     "pytest-randomly>=3.15",
     "pytest-xdist>=3.3",
-    "ruff>=0.1.11",
     "tomli-w>=1.2.0",
 ]
 
+# Documentation site (`just docs`): owned by the project
 docs = [
     "griffe-typingdoc>=0.2.4",
     "markdown-callouts>=0.3",
@@ -74,36 +84,40 @@ docs = [
     "typer>=0.9.0",
 ]
 
-[tool.uv]
-default-groups = ["dev", "docs"]
+# Installable package (template answer `packaged`): `just install-tool` puts
+# the [project.scripts] entry points on PATH
+[build-system]
+requires = ["pdm-backend>=2.5"]
+build-backend = "pdm.backend"
 
-# Primary internal index
-[[tool.uv.index]]
-name = "pypi"
-url = "https://pypi.org/simple"
-
-[tool.uv.sources]
-mkdocs = { index = "pypi" }
-mkdocs-material = { index = "pypi" }
-mkdocs-awesome-pages-plugin = { index = "pypi" }
-mkdocs-site-urls = { index = "pypi" }
-
-[tool.commitizen]  # https://commitizen-tools.github.io/commitizen/config/
-bump_message = "bump(release): v$current_version → v$new_version"
-tag_format = "v$version"
-update_changelog_on_bump = false
-version_provider = "pep621"
-version_files = [
-    "pyproject.toml:^version"
-]
-annotated_tag = true
+[tool.pdm]
+distribution = true
+plugins = ["pdm-bump"]
 
 [tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+# lantoki (QLT-1, DEV-4): coverage gate and reports on every `just test`;
+# run one file with `just test --no-cov tests/test_x.py`
+addopts = [
+    "--cov=src",
+    "--cov-report=term-missing",
+    "--cov-fail-under=75",
+    "--cov-report=html:docs/_build/coverage/unit",
+    "--cov-report=xml:docs/_build/coverage/unit/coverage.xml",
+    "--html=docs/_build/test-reports/unit/index.html",
+    "--junitxml=docs/_build/test-reports/unit/junit.xml",
+]
+junit_suite_name = "unit-test"
 filterwarnings = [
     "ignore::pytest.PytestDeprecationWarning:pytest_bdd.*",
     "ignore::DeprecationWarning:structlog.threadlocal*:0"
 ]
 
+[tool.coverage.run]
+data_file = "docs/_build/coverage/test/.coverage"
+
+# lantoki (DEV-4): Ruff ALL, 120 columns
 [tool.ruff]
 line-length = 120
 

@@ -1,0 +1,6 @@
+formatter:
+  type: basic
+  retain_line_breaks_single: true
+# Written by copier (PyYAML wraps lines at 80 columns); not ours to format
+exclude:
+  - .copier-answers.yml
