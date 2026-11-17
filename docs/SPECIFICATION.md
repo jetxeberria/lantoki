@@ -4,7 +4,7 @@
 |---|---|
 | **Status** | Active |
 | **Owner** | jetxeberria |
-| **Last change** | 2026-11-16 — D-011 (a generated file can be installed inside a linked folder) |
+| **Last change** | 2026-11-17 — D-012 (repository tooling follows the galtzagorri template) |
 
 This document is the authority on what lantoki is, what it must do and **why**. Every requirement has an ID and a rationale. Code, tests and docs implement these requirements and cite their IDs; when they disagree with this document, this document wins until it is changed through [§10 Change control](#10-change-control).
 
@@ -44,6 +44,7 @@ This document is the authority on what lantoki is, what it must do and **why**. 
 | **Target** | The path (or registration) where a provider expects an artifact. |
 | **Compiled store** | `~/.local/share/lantoki/compiled/`, where generated artifacts live before being linked to their targets. |
 | **Manifest** | lantoki's record of every target it installed, per scope. |
+| **Template** | [galtzagorri](https://github.com/jetxeberria/galtzagorri), the copier template that owns the shared development tooling (§9.1). |
 
 ## 4. Principles
 
@@ -237,6 +238,39 @@ Sources added since the last sync are asked about when a terminal is available; 
 
 **QLT-5.** Tests never touch the real home directory or the real provider CLIs.
 
+### 9.1 Development tooling
+
+**DEV-1. The repository follows the galtzagorri template.** It is linked to the template through copier (`.copier-answers.yml`) and kept in sync with `just update`, which merges the template, relocks, reinstalls and runs `just check`, leaving a working repository ready to commit.
+
+> **Why.** Every personal project shares the same tooling (system packages, user tools, formatters, linters, hooks). Hand-maintained copies drift exactly like the per-harness copies PUR-1 removes: a fix made in one project never reaches the others. With the template as the single owner, a tooling fix is made once and reaches every project through an update that proves itself with the checks.
+
+**DEV-2. PDM (uv backend) and just.** Dependencies are managed with PDM and locked in `pdm.lock`, which is committed; `uv.lock` and the `[tool.uv]` configuration are removed. Ownership of dependency declarations:
+
+| Declaration | Owner | Content |
+|---|---|---|
+| `base` group | template | minimum versions of the tools the template's recipes need; never edited here |
+| `dependencies` | lantoki | runtime dependencies |
+| `dev` group | lantoki | lantoki's own development tools (coverage, bandit, pytest plugins, …), and higher floors for `base` tools when lantoki needs them |
+| `docs` group | lantoki | documentation build |
+
+> **Why.** It is the template's layout (DEV-1). Keeping template-owned and project-owned lines apart is what lets updates merge without conflicts: tested with copier, a project that edited the template's lines got a conflict on every update that touched them, while separate groups merged cleanly. PDM resolves all groups into one lock, so the next developer gets the same versions with one command.
+
+**DEV-3. Python ≥ 3.15** (`python_min` template answer). *Supersedes the `>=3.12,<3.13` pin.*
+
+> **Why.** QLT-4: the latest compatible version, and an upper bound needs a stated incompatibility; the old pin had none. Verified 2026-11-17 on Python 3.15.2: every runtime, dev and docs dependency installs and the 133 tests pass. PyYAML 6.0.3 has no 3.15 wheel and is built from source without the libyaml C extension; the pure-Python parser is fast enough for files of lantoki's size. Raising the minimum later is a deliberate `just update --data python_min=3.X` on a branch, never a side effect of a template update.
+
+**DEV-4. Template recipes keep their meaning; lantoki configures them through `pyproject.toml`.** `just check`, `just test`, `just fmt`, `just lint` and the pre-push hook are the template's. lantoki's requirements on them are tool configuration: pytest runs with coverage and fails under 75 % (QLT-1) through `[tool.pytest.ini_options]`, and Ruff `ALL` through `[tool.ruff]`. lantoki's own recipes (`validate`, `providers`, `plan-user`, `sync-user`, `sync-repo`, `install-tools`, `security`, `docs-*`) live below the template's *project-specific* marker in the Justfile.
+
+> **Why.** If lantoki redefined template recipes, every update touching them would conflict, and `just check` would mean different things in different projects. Tool configuration is the extension point the template leaves to projects. `just check` now also lints YAML, JSON and shell files, which lantoki's old recipes skipped.
+
+**DEV-5. lantoki stays an installable package.** It keeps `[project.scripts]` and a PEP 517 build backend, and `just install-tools` installs it on `PATH` with `uv tool install --editable` (CLI-2).
+
+> **Why.** CLI-2 needs `lantoki` and `python-verification-gate` on `PATH`. The template generates non-installable projects (`distribution = false`), so packaging is either a template option (preferred, see the [adoption plan](plans/2026-11-17-galtzagorri-adoption.md)) or a deliberate override of template-owned lines that every update must keep.
+
+**DEV-6. Adopting the template changes no compiled output.** After the migration, `lantoki plan user` and the golden tests report exactly what they reported before.
+
+> **Why.** The migration is tooling only. PRI-6 makes this measurable: identical sources and profiles must give identical artifacts, so any difference is a migration bug.
+
 ## 10. Non-goals
 
 - **NG-1.** Settings stored only on a provider's servers (e.g. personal preferences in the Claude desktop app's Chat tab, claude.ai project instructions) cannot be managed from files and are out of scope.
@@ -288,3 +322,4 @@ Facts the profiles rely on. Update with the date verified.
 | D-009 | 2026-11-16 | Provider logic is data in profiles; the core is provider-agnostic (PRI-3, PRI-4). | The number of providers will grow; adding one must be trivial and risk-free. |
 | D-010 | 2026-11-16 | Implementation clarifications: `tools` allowed in prompts (SRC-3); one repo-instructions source shared through `AGENTS.md` (SRC-8); profiles read with `tomllib` (PRF-1); no empty JSON aggregates (CMP-4); `--adopt-commands` for CLI registrations (INS-6); new repo sources never installed silently (INS-7); exit codes (CLI-1). | Found while migrating the existing sources and comparing against the previous installer's output (`tests/fixtures/baseline`). |
 | D-011 | 2026-11-16 | A `markdown` output may set `file`: the target is a folder holding that one generated file, and the folder is what gets linked (PRF-4, INS-1, INS-6). Claude Code prompts use it for `skills/<name>/SKILL.md`. | Claude Code prompts were installed as a real folder holding only a `SKILL.md` symlink, unlike every other skill; the owner wants the folder itself to be the link. |
+| D-012 | 2026-11-17 | The repository's development tooling follows the galtzagorri template: copier link, PDM + just, template-owned `base` group, Python ≥ 3.15, template recipes configured through `pyproject.toml`, packaging kept (DEV-1 … DEV-6). Executed by the [adoption plan](plans/2026-11-17-galtzagorri-adoption.md). | lantoki's hand-written uv tooling had drifted from the owner's other projects; a single template keeps them aligned and makes updates verifiable. |
