@@ -119,6 +119,16 @@ just install && pdm run pytest -q
 2. After Phase 3, run them again. The output must be identical, and the golden tests must pass.
 3. `just install-tools`, then `lantoki --help` and `python-verification-gate --help` run from `PATH`.
 
+**Result (2026-11-17):**
+
+| Check | Before Phase 1 (uv, Python 3.12) | After Phase 3 (PDM, Python 3.15.2) |
+|---|---|---|
+| `lantoki plan user` (and `-v`, 25 targets) | 25 unchanged | identical |
+| `lantoki plan repo ~/repos/galtzagorri --all` | 18-line plan | identical |
+| tests | 133 passed | 134 passed (+ the template's `test_package.py`), coverage 96.9 % |
+| `mkdocs build --strict` | exit 1: `theme.custom_dir` `docs/theme` does not exist | identical (pre-existing, out of scope) |
+| `just install-tools` | — | `lantoki --help` works from `PATH`; `python-verification-gate` (a stdio MCP server with no `--help`) starts from `PATH` and exits 0 on EOF |
+
 ### Phase 5: prove updates work (DEV-1)
 
 1. Commit, then run `just update`. With no new template change it must finish with *all checks passed* and an empty `git status`.
