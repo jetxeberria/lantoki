@@ -8,13 +8,13 @@ site_author: "jetxeberria"
 docs_dir: docs
 copyright: MIT License
 
-#strict: true
+# strict: true
 
 # Page tree
 nav:
   - Home: index.md
   - Reference:
-    - Python API: reference/index.md
+      - Python API: reference/index.md
   - Contributing: contributing.md
   - License: license.md
 
@@ -67,7 +67,7 @@ plugins:
         python:
           options:
             extensions:
-            - griffe_typingdoc
+              - griffe_typingdoc
             show_source: false
             show_root_heading: true
             show_if_no_docstring: true

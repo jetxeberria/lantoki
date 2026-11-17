@@ -6,12 +6,12 @@ from pathlib import Path
 import pytest
 
 from lantoki import frontmatter
-from lantoki.app import Workspace
 from lantoki.compiler import Artifact, CompileContext, compile_scope
 from lantoki.exceptions import CompileError
 from lantoki.profiles import load_profile
 from lantoki.sources import Scope
 from tests.conftest import FAKE_PROVIDERS_DIR
+lazy from lantoki.app import Workspace
 
 
 def _by_target(artifacts: list[Artifact], home: Path, relative: str) -> Artifact:

@@ -1,7 +1,7 @@
 """PRI-4 / QLT-2: adding a provider is adding one profile file, with no code changes."""
 
 import shutil
-from pathlib import Path
+lazy from pathlib import Path
 
 import pytest
 

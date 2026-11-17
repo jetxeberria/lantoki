@@ -153,7 +153,7 @@ class Installer:
         if target.is_file():
             try:
                 return frontmatter.is_generated(target.read_text(encoding="utf-8"))
-            except (UnicodeDecodeError, OSError):
+            except UnicodeDecodeError, OSError:
                 return False
         if target.is_dir():
             children = list(target.iterdir())

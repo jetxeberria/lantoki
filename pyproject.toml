@@ -146,6 +146,11 @@ ignore = [
     "S603",     # tests run the installer script with sys.executable
     "PLR0917",  # pytest injects fixtures and parameters positionally
 ]
+# Owned by the galtzagorri template (DEV-1): kept as rendered, not edited here
+"tests/test_package.py" = [
+    "D100",     # undocumented-public-module
+    "ANN201",   # missing-return-type-public-function
+]
 
 [tool.ruff.lint.isort]
 lines-after-imports = 2

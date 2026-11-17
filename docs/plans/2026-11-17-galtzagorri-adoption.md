@@ -101,6 +101,7 @@ just install && pdm run pytest -q
 
 - The 3 yamllint issues in `mkdocs.yml`.
 - `jq --indent 2` on the baseline JSON fixture.
+- Found during execution (see [Deviations](#deviations-found-during-execution)): `yamlfmt` on `mkdocs.yml`; Ruff targeting Python 3.15.
 
 **Check:** `just check` passes. That means formatting, Ruff, shell, YAML, JSON and tests with coverage ≥ 75 %.
 
@@ -122,6 +123,18 @@ just install && pdm run pytest -q
 
 1. Commit, then run `just update`. With no new template change it must finish with *all checks passed* and an empty `git status`.
 2. Push. The pre-push hook runs `just check`.
+
+## Deviations found during execution
+
+Recorded 2026-11-17 while executing the plan; none changes lantoki's behaviour.
+
+| Phase | Plan said | Reality | Done instead | Reason |
+|---|---|---|---|---|
+| 1 | `pdm run copier copy …` in lantoki | lantoki had no PDM environment yet, so `pdm run copier` had nothing to run | ran copier from galtzagorri's environment (`pdm run -p ~/repos/galtzagorri copier copy …`), same arguments | chicken-and-egg: the environment is what the copy creates |
+| 1 | check with `just install` | `install-system` needs sudo (apt); system and user tools were already installed | `just install-env` (Python, plugins, dependencies, hooks) | same Python layer; the other layers were unchanged |
+| 2 | "Ruff on the whole repository passes" | true for the old 3.12 target only. With `requires-python >= 3.15`, Ruff formats `except (A, B):` as `except A, B:` (PEP 758, one line in `installer.py`) and flags 7 typing-only imports in tests as candidates for `lazy` imports (TC001/TC003, PEP 810) | applied Ruff's fixes: the PEP 758 format and `lazy from … import …` in 7 test files | latest practices for the new minimum Python (QLT-4); both are syntax-only |
+| 2 | `tests/test_package.py` taken from the template | the template's file fails Ruff `ALL` (D100, ANN201) | per-file ignore for that file in `[tool.ruff.lint.per-file-ignores]` | the file is template-owned (DEV-1): configure, do not edit |
+| 2 | only yamllint issues in `mkdocs.yml` | `yamlfmt -lint` also flagged its list indentation | `just fmt-yaml` | it is part of the template's `just check` |
 
 ## Risks
 

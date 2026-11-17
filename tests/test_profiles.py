@@ -1,7 +1,7 @@
 """Tests for provider profiles (SPECIFICATION §6)."""
 
 import tomllib
-from pathlib import Path
+lazy from pathlib import Path
 
 import pytest
 import tomli_w

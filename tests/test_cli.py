@@ -1,6 +1,6 @@
 """Tests for the lantoki command line (CLI-1)."""
 
-from pathlib import Path
+lazy from pathlib import Path
 
 import pytest
 from typer.testing import CliRunner

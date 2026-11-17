@@ -1,6 +1,6 @@
 """Tests for loading neutral sources (SPECIFICATION §5)."""
 
-from pathlib import Path
+lazy from pathlib import Path
 
 import pytest
 
