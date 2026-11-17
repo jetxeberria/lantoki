@@ -134,6 +134,8 @@ just install && pdm run pytest -q
 1. Commit, then run `just update`. With no new template change it must finish with *all checks passed* and an empty `git status`.
 2. Push. The pre-push hook runs `just check`.
 
+**Result (2026-11-17):** `just update` on the committed branch (template at galtzagorri `d45d927`) finished with *all checks passed* and an empty `git status`.
+
 ## Deviations found during execution
 
 Recorded 2026-11-17 while executing the plan; none changes lantoki's behaviour.
