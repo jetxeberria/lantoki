@@ -30,13 +30,15 @@ SAMPLE_SOURCES = {
         "---\ndescription: Helps\ntools: [read, search, execute, 'mcp:gate/run_lint']\n---\nHelp with {{arguments}}.\n"
     ),
     "user/skills/demo/SKILL.md": "---\nname: demo\ndescription: Demo skill\n---\nDo demo things.\n",
-    "user/mcp.toml": ('[servers.gate]\ncommand = "gate"\nargs = ["--fast"]\nenv = { TOKEN = "{{env:GATE_TOKEN}}" }\n'),
+    "user/mcp/gate/server.toml": ('command = "gate"\nargs = ["--fast"]\nenv = { TOKEN = "{{env:GATE_TOKEN}}" }\n'),
+    "user/mcp/gate/server.py": "print('the server code is not a source')\n",
+    "user/mcp/gate/tests/test_gate.py": "def test_gate() -> None: ...\n",
     "project/repo-instructions.md": "---\ndescription: Repo rules\n---\nKeep it tidy.\n",
     "project/instructions/python.md": "---\ndescription: Py\napplies_to: ['**/*.py']\n---\nTyped.\n",
     "project/instructions/airflow.md": "---\ndescription: Airflow\napplies_to: ['dags/**']\n---\nDAGs.\n",
     "project/prompts/docs.md": "---\ndescription: Write docs\n---\nDocument {{arguments}}.\n",
     "project/skills/lint/SKILL.md": "---\nname: lint\ndescription: Lint\n---\nRun the linter.\n",
-    "project/mcp.toml": '[servers.db]\ncommand = "db-mcp"\n',
+    "project/mcp/db/server.toml": 'command = "db-mcp"\n',
 }
 
 

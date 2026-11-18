@@ -55,7 +55,7 @@ without PDM. `just check` installs it alone in a throwaway environment
 
 ## Using lantoki
 
-On a new machine, `git clone` this repository, then `sudo apt install just` and `just init`: that installs the tooling, puts `lantoki` and the MCP server scripts in `customizations/*/servers/` on `PATH`, installs every user-level customization (`sync-user`) and this repository's own, and runs the checks (PUR-2, DEV-7).
+On a new machine, `git clone` this repository, then `sudo apt install just` and `just init`: that installs the tooling, puts `lantoki` and the MCP server scripts in `customizations/*/mcp/` on `PATH`, installs every user-level customization (`sync-user`) and this repository's own, and runs the checks (PUR-2, DEV-7).
 
 ```bash
 just install-tools    # put `lantoki` and every MCP server script on PATH
@@ -78,7 +78,7 @@ See [source format](docs/source-format.md). In short:
 | Prompt | `customizations/{user,project}/prompts/<name>.md` | a slash command; `{{arguments}}` is what the user types after it |
 | Agent | `customizations/user/agents/<name>.md` | a specialised agent with a neutral `tools` list |
 | Skill | `customizations/{user,project}/skills/<name>/SKILL.md` | Agent Skills standard, used as-is |
-| MCP servers | `customizations/{user,project}/mcp.toml` | `[servers.<name>]` with `command`, `args`, `env` |
+| MCP servers | `customizations/{user,project}/mcp/<name>/server.toml` | `command`, `args`, `env`; the server's code and tests may sit beside it |
 | Repo instructions | `customizations/project/repo-instructions.md` | always-on instructions for a repository |
 
 ## Development

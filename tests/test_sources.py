@@ -66,8 +66,12 @@ def test_given_instruction_without_applies_to_when_loading_then_it_applies_every
         ("user/prompts/scoped.md", "---\ndescription: x\napplies_to: ['*']\n---\n", "applies_to: Extra inputs"),
         ("user/instructions/list.md", "---\n- a\n---\n", "Front matter must be a YAML mapping"),
         ("user/skills/no-skill-file/README.md", "x", "a skill directory needs a SKILL.md"),
-        ("user/mcp.toml", "[servers.x]\nargs = []\n", "servers.x: command: Field required"),
-        ("project/mcp.toml", "[servers\n", "invalid TOML"),
+        ("user/mcp/no-server-file/README.md", "x", "an MCP server directory needs a server.toml"),
+        ("user/mcp/Bad_Server/server.toml", 'command = "x"\n', "name 'Bad_Server' must match"),
+        ("user/mcp/x/server.toml", "args = []\n", "command: Field required"),
+        ("user/mcp/x/server.toml", 'command = "x"\ntype = "stdio"\n', "type: Extra inputs"),
+        ("project/mcp/x/server.toml", "command = [\n", "invalid TOML"),
+        ("user/mcp.toml", '[servers.gate]\ncommand = "g"\n', r"mcp.toml is no longer read.*mcp/gate/server.toml"),
     ],
 )
 def test_given_invalid_source_when_loading_then_error_names_file_and_problem(
@@ -107,14 +111,9 @@ def test_given_repo_instructions_in_user_scope_when_loading_then_it_is_ignored(t
     assert load_sources(root) == []
 
 
-def test_given_server_project_in_scope_when_loading_then_it_is_not_a_source(tmp_path: Path) -> None:
-    root = write_tree(
-        tmp_path / "sources",
-        {
-            "user/servers/gate/pyproject.toml": "[project]\nname = 'gate'\n",
-            "user/servers/gate/src/gate/__init__.py": "",
-            "user/servers/gate/README.md": "no front matter\n",
-        },
-    )
+def test_given_server_folder_when_loading_then_source_is_the_folder_named_after_it(sources_root: Path) -> None:
+    sources = load_sources(sources_root)
 
-    assert load_sources(root) == []
+    gate = next(source for source in sources if source.kind is Kind.MCP and source.name == "gate")
+    assert gate.path == sources_root / "user" / "mcp" / "gate"
+    assert gate.fields()["args"] == ["--fast"]

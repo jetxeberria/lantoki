@@ -1,0 +1,2 @@
+command = "python-verification-gate"   # on PATH via `just install-servers` (CLI-2)
+args = []

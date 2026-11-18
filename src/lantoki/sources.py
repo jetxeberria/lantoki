@@ -2,8 +2,8 @@
 
 Layout under the sources root::
 
-    user/     instructions/*.md  prompts/*.md  agents/*.md  skills/<name>/  mcp.toml
-    project/  repo-instructions.md  instructions/*.md  prompts/*.md  skills/<name>/  mcp.toml
+    user/     instructions/*.md  prompts/*.md  agents/*.md  skills/<name>/  mcp/<name>/server.toml
+    project/  repo-instructions.md  instructions/*.md  prompts/*.md  skills/<name>/  mcp/<name>/server.toml
 """
 
 from __future__ import annotations
@@ -102,7 +102,7 @@ class RepoInstructionsMetadata(_Metadata):
 
 
 class McpServer(BaseModel):
-    """One MCP server declared in ``mcp.toml`` (SRC-7)."""
+    """One MCP server declared in ``mcp/<name>/server.toml`` (SRC-7)."""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -145,7 +145,9 @@ _MARKDOWN_KINDS: dict[Kind, tuple[str, type[_Metadata]]] = {
     Kind.AGENT: ("agents", AgentMetadata),
 }
 SKILLS_DIR = "skills"
-MCP_FILE = "mcp.toml"
+MCP_DIR = "mcp"
+SERVER_FILE = "server.toml"
+RETIRED_MCP_FILE = "mcp.toml"
 REPO_INSTRUCTIONS_FILE = "repo-instructions.md"
 
 
@@ -198,19 +200,34 @@ class _Loader:
                 continue
             self.sources.append(Source(Kind.SKILL, scope, skill_dir.name, skill_dir))
 
-    def load_mcp(self, path: Path, scope: Scope) -> None:
-        try:
-            servers = tomllib.loads(path.read_text(encoding="utf-8")).get("servers", {})
-        except tomllib.TOMLDecodeError as error:
-            self.error(path, f"invalid TOML: {error}")
-            return
-        for name, definition in sorted(servers.items()):
-            try:
-                server = McpServer.model_validate(definition)
-            except ValidationError as error:
-                self.error(path, f"servers.{name}: {_format_validation_error(error)}")
+    def load_mcp_servers(self, directory: Path, scope: Scope) -> None:
+        for server_dir in sorted(path for path in directory.iterdir() if path.is_dir()):
+            if not self.check_name(server_dir, server_dir.name):
                 continue
-            self.sources.append(Source(Kind.MCP, scope, name, path, server=server))
+            declaration = server_dir / SERVER_FILE
+            if not declaration.is_file():
+                self.error(server_dir, f"an MCP server directory needs a {SERVER_FILE} (SRC-7)")
+                continue
+            try:
+                server = McpServer.model_validate(tomllib.loads(declaration.read_text(encoding="utf-8")))
+            except tomllib.TOMLDecodeError as error:
+                self.error(declaration, f"invalid TOML: {error}")
+                continue
+            except ValidationError as error:
+                self.error(declaration, _format_validation_error(error))
+                continue
+            self.sources.append(Source(Kind.MCP, scope, server_dir.name, server_dir, server=server))
+
+    def report_retired_mcp_file(self, path: Path) -> None:
+        """Reject a scope-level ``mcp.toml``, which would otherwise be silently ignored (SRC-7, PRI-7)."""
+        try:
+            names = sorted(tomllib.loads(path.read_text(encoding="utf-8")).get("servers", {}))
+        except tomllib.TOMLDecodeError:
+            names = []
+        destinations = (
+            ", ".join(f"{MCP_DIR}/{name}/{SERVER_FILE}" for name in names) or f"{MCP_DIR}/<name>/{SERVER_FILE}"
+        )
+        self.error(path, f"{RETIRED_MCP_FILE} is no longer read; declare each server in {destinations} (SRC-7, D-017)")
 
     def load_scope(self, scope: Scope) -> None:
         scope_dir = self.root / scope
@@ -223,8 +240,10 @@ class _Loader:
                     self.load_markdown(path, kind, scope, model, path.stem)
         if (scope_dir / SKILLS_DIR).is_dir():
             self.load_skills(scope_dir / SKILLS_DIR, scope)
-        if (scope_dir / MCP_FILE).is_file():
-            self.load_mcp(scope_dir / MCP_FILE, scope)
+        if (scope_dir / MCP_DIR).is_dir():
+            self.load_mcp_servers(scope_dir / MCP_DIR, scope)
+        if (scope_dir / RETIRED_MCP_FILE).is_file():
+            self.report_retired_mcp_file(scope_dir / RETIRED_MCP_FILE)
         repo_instructions = scope_dir / REPO_INSTRUCTIONS_FILE
         if scope is Scope.PROJECT and repo_instructions.is_file():
             self.load_markdown(

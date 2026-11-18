@@ -117,7 +117,7 @@ filterwarnings = [
 [tool.coverage.run]
 data_file = "docs/_build/coverage/test/.coverage"
 # Measure server code, not its tests (SRC-9)
-omit = ["customizations/*/servers/*/tests/*"]
+omit = ["customizations/*/mcp/*/tests/*"]
 
 # lantoki (DEV-4): Ruff ALL, 120 columns
 [tool.ruff]
@@ -150,7 +150,7 @@ ignore = [
 ]
 # Server scripts and their tests are standalone files, not packages (SRC-9); an __init__.py
 # in a server's tests/ would also clash with lantoki's own `tests` package
-"customizations/*/servers/**/*.py" = ["INP001"]
+"customizations/*/mcp/**/*.py" = ["INP001"]
 # Owned by the galtzagorri template (DEV-1): kept as rendered, not edited here
 "tests/test_package.py" = [
     "D100",     # undocumented-public-module

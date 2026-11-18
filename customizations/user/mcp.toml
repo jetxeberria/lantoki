@@ -1,5 +1,0 @@
-# MCP servers available in every project (SRC-7). Compiled per provider by lantoki.
-
-[servers.python-verification-gate]
-command = "python-verification-gate"
-args = []

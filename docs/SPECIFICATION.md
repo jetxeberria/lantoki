@@ -86,16 +86,17 @@ All sources live under `customizations/` at the repository root:
 
 ```
 customizations/
-  user/      instructions/*.md   prompts/*.md   agents/*.md   skills/<name>/   mcp.toml
-  project/   repo-instructions.md   instructions/*.md   prompts/*.md   skills/<name>/   mcp.toml
-  <scope>/   servers/<name>/       server.py + tests/: an MCP server declared in that scope's mcp.toml (SRC-9)
+  user/      instructions/*.md   prompts/*.md   agents/*.md   skills/<name>/   mcp/<name>/
+  project/   repo-instructions.md   instructions/*.md   prompts/*.md   skills/<name>/   mcp/<name>/
 ```
+
+Every customization is one file or one folder: deleting it removes the customization and everything only it uses (SRC-9).
 
 **SRC-1. Neutral dialect.** Sources use lantoki's own front-matter fields, placeholders and tool names, not any provider's.
 
 > **Why.** If sources used one provider's dialect, that provider would be privileged and its quirks would leak into every other profile (D-002). Before D-002 sources were written in Copilot's dialect, and the Claude Code mapping had to translate Copilot concepts.
 
-**SRC-2. Names.** A source's name is its file name without extension (or its folder name for skills), restricted to `[a-z0-9-]+`. An optional `title` holds a human-readable name.
+**SRC-2. Names.** A source's name is its file name without extension (or its folder name for skills and MCP servers), restricted to `[a-z0-9-]+`. An optional `title` holds a human-readable name.
 
 > **Why.** It is the intersection of what every known provider accepts (Claude Code rejects `:` and leading `-` in agent names; command names derive from file names). Validating once avoids per-provider failures.
 
@@ -125,13 +126,14 @@ customizations/
 
 > **Why.** Copilot, Claude Code and others already share this format, so no compilation is needed and supporting files keep working.
 
-**SRC-7. MCP servers** are declared in `mcp.toml` as `[servers.<name>]` with `command`, `args`, `env`.
+**SRC-7. MCP servers** are folders, `<scope>/mcp/<name>/`, each declaring one server in `server.toml` with the top-level keys `command`, `args`, `env` (unknown keys are rejected). The folder may also hold the server's own code (SRC-9). A folder without `server.toml` is an error. A scope-level `mcp.toml` is no longer read: if one exists, validation fails and names the folders to move its servers to (PRI-7). *Amended by D-017: servers were previously declared together as `[servers.<name>]` tables in one `mcp.toml` per scope.*
 
+> **Why one folder per server.** With one shared `mcp.toml`, removing a server meant deleting its code folder and editing the shared file; now it is deleting one folder, like a skill (D-017).
 > **Why.** Copilot VS Code (`servers`), Copilot CLI (`mcpServers`, `type = "local"`) and Claude Code (`mcpServers`, or a CLI registration at user scope) all differ; one neutral declaration is compiled to each.
 
 **SRC-8. `repo_instructions`** (`project/repo-instructions.md`) holds always-on instructions for a repository, compiled to each provider's repo-wide instructions file. Providers that read the same file (`AGENTS.md`) share one target (CMP-2).
 
-**SRC-9. Code that belongs to a customization lives with it, never in the core.** `src/lantoki/` holds only lantoki's core (loading, compiling, installing); `customizations/` holds the customizations and everything only they use, grouped so that removing one is deleting its folder (plus its declaration, for an MCP server). A skill's scripts stay in its folder (SRC-6). An MCP server's code is one folder, `customizations/<scope>/servers/<name>/`: `server.py`, a single-file script with its dependencies in an inline metadata block (PEP 723) and the shebang `#!/usr/bin/env -S uv run --script`, plus its tests in `tests/`. There is no second package or `pyproject.toml`: the server is part of lantoki's repository and the dependencies it alone needs stay out of lantoki's. The loader ignores `servers/`: it is not a source kind and is never compiled or installed into a harness.
+**SRC-9. Code that belongs to a customization lives with it, never in the core.** `src/lantoki/` holds only lantoki's core (loading, compiling, installing); `customizations/` holds the customizations and everything only they use, grouped so that removing one is deleting its file or folder. A skill's scripts stay in its folder (SRC-6). An MCP server's code stays in its folder (SRC-7), `customizations/<scope>/mcp/<name>/`, beside `server.toml`: `server.py`, a single-file script with its dependencies in an inline metadata block (PEP 723) and the shebang `#!/usr/bin/env -S uv run --script`, plus its tests in `tests/`. There is no second package or `pyproject.toml`: the server is part of lantoki's repository and the dependencies it alone needs stay out of lantoki's. The loader reads only `server.toml`; the code and tests are never compiled or installed into a harness. *Amended by D-017: the code previously lived in a separate `servers/<name>/` folder.*
 
 > **Why.** The `python-verification-gate` server sat in `src/lantoki/` beside the compiler, and its `mcp` dependency was one of lantoki's, although only one MCP declaration uses it. Separating core from customization code makes each easier to work on, and a customization trivial to delete. A PEP 723 script keeps the server's dependency declared next to it without building a second package (D-016).
 
@@ -229,7 +231,7 @@ Sources added since the last sync are asked about when a terminal is available; 
 
 **CLI-1.** `lantoki validate`, `lantoki providers`, `lantoki plan user`, `lantoki plan repo <path> [--all]`, `lantoki sync user`, `lantoki sync repo <path> [--all|--select]`; `--provider` limits a run to some providers, `--adopt-commands` enables INS-6 for CLI registrations. Exit codes: 0 ok, 1 conflicts or failed steps, 2 invalid sources, profiles or options. `just` recipes wrap them.
 
-**CLI-2.** Supporting executables are installed on `PATH` with `just install-tools`, so profiles and MCP declarations never contain absolute paths: `lantoki` itself, and each MCP server script as `~/.local/bin/<name>`, a symlink to `customizations/<scope>/servers/<name>/server.py` (SRC-9) that `uv` runs with the script's own dependencies. *Amended by D-016: the `python-verification-gate` server used to be a second script of lantoki's own package.*
+**CLI-2.** Supporting executables are installed on `PATH` with `just install-tools`, so profiles and MCP declarations never contain absolute paths: `lantoki` itself, and each MCP server script as `~/.local/bin/<name>`, a symlink to `customizations/<scope>/mcp/<name>/server.py` (SRC-9) that `uv` runs with the script's own dependencies. *Amended by D-016: the `python-verification-gate` server used to be a second script of lantoki's own package.*
 
 > **Why.** MCP configs with an absolute path to the repo broke when the repo moved (D-006).
 
@@ -336,3 +338,4 @@ Facts the profiles rely on. Update with the date verified.
 | D-014 | 2026-11-18 | `just init` (galtzagorri INI-1) is the one command that reproduces lantoki's setup on a new machine; lantoki's `init-project` hook runs `sync-user` (DEV-7); `install-tools` becomes lantoki's name for the template's `install-tool-editable` (DEV-5). | PUR-2 asked for one command; the template now provides it, in the right order. Owner's request. |
 | D-015 | 2026-11-18 | `sync repo` keeps its targets out of git through a managed block in `.git/info/exclude`, instead of asking each repository to list them in `.gitignore` (INS-9). | Needed for `just init` (D-014) to leave a clean tree in any project, without the template duplicating lantoki's provider knowledge. |
 | D-016 | 2026-11-18 | Code only a customization uses lives with it under `customizations/`, never in `src/lantoki/` (SRC-9). An MCP server is one folder, `customizations/<scope>/servers/<name>/`, holding a PEP 723 single-file script and its tests, linked onto `PATH` by `just install-tools` (CLI-2, DEV-7); `python-verification-gate` moves there and `mcp` leaves lantoki's dependencies. No second package. Executed by the [separation plan](plans/2026-11-18-customization-code-separation.md). | Customization code was mixed with the core modules; a clear separation eases development and makes deleting a customization deleting a folder. Owner's request; a separate `pyproject.toml` per server was rejected as a second package. |
+| D-017 | 2026-11-18 | Each MCP server is a folder, `<scope>/mcp/<name>/`, holding its declaration (`server.toml`) and, if lantoki provides it, its code and tests; the scope-level `mcp.toml` is retired, and a leftover one fails validation (SRC-7, SRC-2, SRC-9, CLI-2). Executed by the [MCP folders plan](plans/2026-11-18-mcp-server-folders.md). | Deleting a customization must be deleting one folder (owner's request); one shared `mcp.toml` kept a server's declaration apart from its code. |

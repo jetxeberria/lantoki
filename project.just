@@ -12,7 +12,7 @@ install-servers:
     #!/usr/bin/env bash
     set -euo pipefail
     mkdir -p ~/.local/bin
-    for script in "$PWD"/customizations/*/servers/*/server.py; do
+    for script in "$PWD"/customizations/*/mcp/*/server.py; do
         [ -f "$script" ] || continue
         name=$(basename "$(dirname "$script")")
         echo "linking $name -> $script"
@@ -44,7 +44,7 @@ sync-repo path *args:
 
 # Run security analysis (bandit; extra arguments go to it)
 security *args:
-    pdm run bandit -v -r src/lantoki customizations/*/servers/*/server.py {{ args }}
+    pdm run bandit -v -r src/lantoki customizations/*/mcp/*/server.py {{ args }}
 
 # Build the documentation site
 docs: docs-build

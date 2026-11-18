@@ -220,7 +220,7 @@ def test_given_registered_server_removed_from_sources_when_syncing_then_it_is_un
     cli = _install_cli(home)
     runner = FakeRunner()
     run_scope(acme_workspace, Scope.USER, apply=True, run_command=runner)
-    (sources_root / "user" / "mcp.toml").write_text("", encoding="utf-8")
+    shutil.rmtree(sources_root / "user" / "mcp" / "gate")
 
     outcome = run_scope(Workspace.load(load_settings()), Scope.USER, apply=True, run_command=runner)
 

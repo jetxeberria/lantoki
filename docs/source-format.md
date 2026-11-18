@@ -11,14 +11,13 @@ customizations/
     prompts/<name>.md
     agents/<name>.md
     skills/<name>/SKILL.md (+ supporting files)
-    mcp.toml
-    servers/<name>/              # code of an MCP server declared in mcp.toml (not a source)
+    mcp/<name>/server.toml (+ the server's own code and tests, if any)
   project/                       # chosen per repository with `lantoki sync repo`
     repo-instructions.md
     instructions/<name>.md
     prompts/<name>.md
     skills/<name>/SKILL.md
-    mcp.toml
+    mcp/<name>/server.toml
 ```
 
 `<name>` is the file (or folder) name: lowercase letters, digits and single hyphens (`python`, `k8s-root-cause`).
@@ -71,11 +70,14 @@ A folder following the [Agent Skills](https://agentskills.io) standard, installe
 
 ## MCP servers
 
+One folder per server, `<scope>/mcp/<name>/`, named after the server (SRC-2, SRC-7). Its `server.toml` declares it:
+
 ```toml
-[servers.python-verification-gate]
 command = "python-verification-gate"   # on PATH (CLI-2); never an absolute repo path
 args = []
 env = { API_TOKEN = "{{env:API_TOKEN}}" }
 ```
 
-A server whose code lives in lantoki is one folder, `<scope>/servers/<name>/` (SRC-9): `server.py`, a single-file script whose dependencies are declared in a PEP 723 block under the shebang `#!/usr/bin/env -S uv run --script`, and its tests in `tests/`. `just install-tools` (or `just install-servers`) links it onto `PATH` as `<name>`, the `command` above; lantoki's loader ignores the folder. Deleting the folder and its `mcp.toml` entry removes the server. Example: `user/servers/python-verification-gate/`.
+When lantoki provides the server itself, its code lives in the same folder (SRC-9): `server.py`, a single-file script whose dependencies are declared in a PEP 723 block under the shebang `#!/usr/bin/env -S uv run --script`, and its tests in `tests/`. `just install-tools` (or `just install-servers`) links it onto `PATH` as `<name>`, the `command` above; lantoki reads only `server.toml`. Deleting the folder removes the server. Example: `user/mcp/python-verification-gate/`.
+
+A scope-level `mcp.toml` (the format before D-017) is rejected with the folders to move its servers to.

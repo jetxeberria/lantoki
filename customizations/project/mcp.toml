@@ -1,5 +1,0 @@
-# MCP servers for repositories synced with lantoki (SRC-7). Example:
-#
-# [servers.my-server]
-# command = "my-server"
-# args = []

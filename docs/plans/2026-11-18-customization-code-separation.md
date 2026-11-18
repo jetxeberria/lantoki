@@ -28,6 +28,8 @@ customizations/user/
     tests/test_python_verification_gate.py
 ```
 
+*Superseded by D-017: the server folder is now `customizations/user/mcp/python-verification-gate/` and holds its declaration (`server.toml`) too; see the [MCP folders plan](2026-11-18-mcp-server-folders.md).*
+
 No second package and no second `pyproject.toml`: the owner rejected that first attempt. The script declares its own dependency inline and `uv` runs it.
 
 ## Phase 1: move the server (SRC-9)
