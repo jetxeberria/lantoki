@@ -4,7 +4,7 @@
 |---|---|
 | **Status** | Active |
 | **Owner** | jetxeberria |
-| **Last change** | 2026-11-18 — D-013 (lantoki's recipes move to `project.just`) |
+| **Last change** | 2026-11-18 — D-014, D-015 (`just init` reproduces the setup; lantoki excludes its repo outputs from git) |
 
 This document is the authority on what lantoki is, what it must do and **why**. Every requirement has an ID and a rationale. Code, tests and docs implement these requirements and cite their IDs; when they disagree with this document, this document wins until it is changed through [§10 Change control](#10-change-control).
 
@@ -216,9 +216,9 @@ Sources added since the last sync are asked about when a terminal is available; 
 
 **INS-8. Dry run.** `lantoki plan …` shows every create, update, adopt, prune and conflict without changing anything.
 
-**INS-9. Repositories should not commit lantoki's symlinks.** Outputs installed into a repo are machine-specific (INS-1) and belong in that repo's `.gitignore`.
+**INS-9. Repositories never commit lantoki's outputs, and lantoki makes sure of it.** Outputs installed into a repo are machine-specific (INS-1). `sync repo` lists every target it owns in that repository, relative to its root, in a lantoki-managed block of the repository's local exclude file (`.git/info/exclude`, found through git, so worktrees work), and keeps the block in step with the manifest: pruned targets leave it, and a repository with no lantoki targets has no block. Lines outside the block are never touched (PRI-5). A target the repository already tracks in git is not excluded; `plan repo` reports it as a warning. *Amended by D-015: repositories previously had to add the paths to their own `.gitignore`.*
 
-> **Why.** Observed: lantoki's own repo committed absolute symlinks to a former path (`~/projects/test_repositories/…`); all five broke when the repo moved.
+> **Why.** Observed: lantoki's own repo committed absolute symlinks to a former path (`~/projects/test_repositories/…`); all five broke when the repo moved. Asking each repository to list the paths in `.gitignore` copies provider knowledge (folder names) into every project, goes stale when a profile changes, and a broad entry such as `/AGENTS.md` hides a project's own committed file. lantoki already knows its exact targets (INS-3), and `.git/info/exclude` is per clone, like the outputs themselves, so nothing about a machine's selection is committed.
 
 ## 9. Interface and quality
 
@@ -263,13 +263,17 @@ Sources added since the last sync are asked about when a terminal is available; 
 
 > **Why.** If lantoki redefined template recipes, every update touching them would conflict, and `just check` would mean different things in different projects. Tool configuration is the extension point the template leaves to projects. A separate file for lantoki's recipes means no file is edited by both lantoki and the template, so updates replace the Justfile without conflicts. `just check` now also lints YAML, JSON and shell files, which lantoki's old recipes skipped.
 
-**DEV-5. lantoki stays an installable package.** It keeps `[project.scripts]` and a PEP 517 build backend, and `just install-tools` installs it on `PATH` with `uv tool install --editable` (CLI-2).
+**DEV-5. lantoki stays an installable package.** It keeps `[project.scripts]` and a PEP 517 build backend, and the template's `just install-tool-editable` (galtzagorri PKG-2) installs it on `PATH` with `uv tool install --editable`; `just install-tools` stays as lantoki's name for it (CLI-2). The template's `just install-tool` installs the built wheel instead, to check the package as a user would get it. *Amended by D-014: the recipe now comes from the template.*
 
 > **Why.** CLI-2 needs `lantoki` and `python-verification-gate` on `PATH`. The template generates non-installable projects (`distribution = false`), so packaging is either a template option (preferred, see the [adoption plan](plans/2026-11-17-galtzagorri-adoption.md)) or a deliberate override of template-owned lines that every update must keep.
 
 **DEV-6. Adopting the template changes no compiled output.** After the migration, `lantoki plan user` and the golden tests report exactly what they reported before.
 
 > **Why.** The migration is tooling only. PRI-6 makes this measurable: identical sources and profiles must give identical artifacts, so any difference is a migration bug.
+
+**DEV-7. `just init` reproduces the whole setup on a new machine (PUR-2).** lantoki uses the template's `just init` (galtzagorri INI-1), and its `project.just` defines the `init-project` hook as `sync-user`. On a fresh Linux machine, `git clone` + `sudo apt install just` + `just init` then: installs the tooling and the environment, puts `lantoki` and `python-verification-gate` on `PATH` (`install-tool-editable`, DEV-5), installs every user-level customization for every provider (`sync user`), installs lantoki's own project-level customizations (the template's `init-ai`) and runs `just check`.
+
+> **Why.** PUR-2 requires that cloning the repository and running one command reproduces the whole setup; before this, it took `just setup`, `just install-tools` and `just sync-user`, in that order. The template already provides the entry point and the order (INI-1): `install-tool-editable` runs before `init-project`, so `lantoki` is on `PATH` when `sync-user` needs it. lantoki only adds what is specific to it.
 
 ## 10. Non-goals
 
@@ -324,3 +328,5 @@ Facts the profiles rely on. Update with the date verified.
 | D-011 | 2026-11-16 | A `markdown` output may set `file`: the target is a folder holding that one generated file, and the folder is what gets linked (PRF-4, INS-1, INS-6). Claude Code prompts use it for `skills/<name>/SKILL.md`. | Claude Code prompts were installed as a real folder holding only a `SKILL.md` symlink, unlike every other skill; the owner wants the folder itself to be the link. |
 | D-012 | 2026-11-17 | The repository's development tooling follows the galtzagorri template: copier link, PDM + just, template-owned `base` group, Python ≥ 3.15, template recipes configured through `pyproject.toml`, packaging kept (DEV-1 … DEV-6). Executed by the [adoption plan](plans/2026-11-17-galtzagorri-adoption.md). | lantoki's hand-written uv tooling had drifted from the owner's other projects; a single template keeps them aligned and makes updates verifiable. |
 | D-013 | 2026-11-18 | lantoki's own recipes move from below the Justfile's project marker to `project.just`; the `Justfile` becomes wholly template-owned (DEV-4, galtzagorri G-005 / JUS-1). | One owner per file: template updates replace the Justfile without conflicts. Owner's request. |
+| D-014 | 2026-11-18 | `just init` (galtzagorri INI-1) is the one command that reproduces lantoki's setup on a new machine; lantoki's `init-project` hook runs `sync-user` (DEV-7); `install-tools` becomes lantoki's name for the template's `install-tool-editable` (DEV-5). | PUR-2 asked for one command; the template now provides it, in the right order. Owner's request. |
+| D-015 | 2026-11-18 | `sync repo` keeps its targets out of git through a managed block in `.git/info/exclude`, instead of asking each repository to list them in `.gitignore` (INS-9). | Needed for `just init` (D-014) to leave a clean tree in any project, without the template duplicating lantoki's provider knowledge. |
