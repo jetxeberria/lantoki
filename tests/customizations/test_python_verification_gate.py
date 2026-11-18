@@ -60,8 +60,8 @@ def _load_python_verification_gate_module(monkeypatch: pytest.MonkeyPatch) -> Mo
     monkeypatch.setitem(sys.modules, "mcp.server", fake_server_module)
     monkeypatch.setitem(sys.modules, "mcp.server.mcpserver", fake_mcpserver_module)
 
-    project_root = Path(__file__).resolve().parents[1]
-    module_path = project_root / "server.py"
+    repo_root = Path(__file__).resolve().parents[2]
+    module_path = repo_root / "customizations" / "user" / "mcp" / "python-verification-gate" / "server.py"
     module_name = f"python_verification_gate_test_{next(_MODULE_COUNTER)}"
     spec = importlib.util.spec_from_file_location(module_name, module_path)
 

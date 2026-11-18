@@ -78,7 +78,7 @@ See [source format](docs/source-format.md). In short:
 | Prompt | `customizations/{user,project}/prompts/<name>.md` | a slash command; `{{arguments}}` is what the user types after it |
 | Agent | `customizations/user/agents/<name>.md` | a specialised agent with a neutral `tools` list |
 | Skill | `customizations/{user,project}/skills/<name>/SKILL.md` | Agent Skills standard, used as-is |
-| MCP servers | `customizations/{user,project}/mcp/<name>/server.toml` | `command`, `args`, `env`; the server's code and tests may sit beside it |
+| MCP servers | `customizations/{user,project}/mcp/<name>/server.toml` | `command`, `args`, `env`; the server's code may sit beside it, its tests go in `tests/customizations/` |
 | Repo instructions | `customizations/project/repo-instructions.md` | always-on instructions for a repository |
 
 ## Development

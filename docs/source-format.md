@@ -11,7 +11,7 @@ customizations/
     prompts/<name>.md
     agents/<name>.md
     skills/<name>/SKILL.md (+ supporting files)
-    mcp/<name>/server.toml (+ the server's own code and tests, if any)
+    mcp/<name>/server.toml (+ the server's own code, if any)
   project/                       # chosen per repository with `lantoki sync repo`
     repo-instructions.md
     instructions/<name>.md
@@ -78,6 +78,6 @@ args = []
 env = { API_TOKEN = "{{env:API_TOKEN}}" }
 ```
 
-When lantoki provides the server itself, its code lives in the same folder (SRC-9): `server.py`, a single-file script whose dependencies are declared in a PEP 723 block under the shebang `#!/usr/bin/env -S uv run --script`, and its tests in `tests/`. `just install-tools` (or `just install-servers`) links it onto `PATH` as `<name>`, the `command` above; lantoki reads only `server.toml`. Deleting the folder removes the server. Example: `user/mcp/python-verification-gate/`.
+When lantoki provides the server itself, its code lives in the same folder (SRC-9): `server.py`, a single-file script whose dependencies are declared in a PEP 723 block under the shebang `#!/usr/bin/env -S uv run --script`. Its tests go in lantoki's `tests/customizations/` (QLT-6). `just install-tools` (or `just install-servers`) links it onto `PATH` as `<name>`, the `command` above; lantoki reads only `server.toml`. Deleting the folder (and its test file, if any) removes the server. Example: `user/mcp/python-verification-gate/`.
 
 A scope-level `mcp.toml` (the format before D-017) is rejected with the folders to move its servers to.

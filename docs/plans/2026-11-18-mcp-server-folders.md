@@ -19,6 +19,8 @@ Facts checked on 2026-11-18:
 
 ## Target layout
 
+*Amended by D-018 (QLT-6): the server's tests moved to `tests/customizations/test_python_verification_gate.py`; the server folder holds only `server.toml` and `server.py`.*
+
 ```
 customizations/user/mcp/python-verification-gate/
   server.toml                                # command = "python-verification-gate", args = []

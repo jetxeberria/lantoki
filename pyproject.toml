@@ -94,8 +94,7 @@ plugins = ["pdm-bump"]
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]
-# MCP server scripts keep their own tests next to them (SRC-9)
-testpaths = ["tests", "customizations"]
+testpaths = ["tests"]
 # lantoki (QLT-1, DEV-4): coverage gate and reports on every `just test`;
 # run one file with `just test --no-cov tests/test_x.py`
 addopts = [
@@ -116,8 +115,6 @@ filterwarnings = [
 
 [tool.coverage.run]
 data_file = "docs/_build/coverage/test/.coverage"
-# Measure server code, not its tests (SRC-9)
-omit = ["customizations/*/mcp/*/tests/*"]
 
 # lantoki (DEV-4): Ruff ALL, 120 columns
 [tool.ruff]
@@ -138,7 +135,7 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"**/tests/**/*.py" = [
+"tests/**/*.py" = [
     "S101",     # assert is how pytest checks results
     "S108",     # tmp paths in fixtures are intentional
     "ARG001",   # pytest fixtures requested only for their side effects
@@ -148,9 +145,8 @@ ignore = [
     "S603",     # tests run the installer script with sys.executable
     "PLR0917",  # pytest injects fixtures and parameters positionally
 ]
-# Server scripts and their tests are standalone files, not packages (SRC-9); an __init__.py
-# in a server's tests/ would also clash with lantoki's own `tests` package
-"customizations/*/mcp/**/*.py" = ["INP001"]
+# MCP server scripts are standalone files, not packages (SRC-9)
+"customizations/*/mcp/*/server.py" = ["INP001"]
 # Owned by the galtzagorri template (DEV-1): kept as rendered, not edited here
 "tests/test_package.py" = [
     "D100",     # undocumented-public-module
