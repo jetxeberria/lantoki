@@ -5,6 +5,9 @@ import 'tooling.just'
 # Rendered only for packaged projects (template answer `packaged`)
 import? 'packaging.just'
 
+# Project-owned recipes: add them to project.just, never to this file (JUS-1)
+import? 'project.just'
+
 # List available recipes
 default:
     @just --list --unsorted
@@ -92,5 +95,3 @@ build:
 clean:
     rm -rfv {{ build_dir }} dist .pytest_cache .ruff_cache
     find . -path ./.venv -prune -o -type d -name __pycache__ -prune -print -exec rm -rf {} +
-
-# --- Project-specific recipes go below this line ---

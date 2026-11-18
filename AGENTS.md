@@ -32,6 +32,6 @@ lantoki is the single source of truth for all AI coding-assistant customization,
 ## Working on this repo
 
 - Tooling: PDM + `just`, from the [galtzagorri](https://github.com/jetxeberria/galtzagorri) template (D-012). Run `just check` (formatting, Ruff `ALL`, YAML, JSON, shell, and pytest with coverage ≥ 75 %) before finishing; the pre-push hook runs it too. For one test file: `just test --no-cov tests/test_x.py` (the coverage gate is in pytest `addopts`).
-- Template updates: `just update`. Never edit template-owned files or lines (the `base` group, the Justfile above its project marker, `tooling.just`, …); configure through `pyproject.toml` instead (DEV-1, DEV-4).
+- Template updates: `just update`. Never edit template-owned files or lines (the `base` group, the `Justfile`, `tooling.just`, …; lantoki's own recipes are in `project.just`); configure through `pyproject.toml` instead (DEV-1, DEV-4).
 - Python and test standards come from lantoki itself: `customizations/project/instructions/python.md` and `tests.md`.
 - Dependencies stay at their latest compatible versions (QLT-4).

@@ -28,6 +28,8 @@ just                    # list recipes
 
 Common recipes: `just fmt`, `just lint`, `just test`, `just check`,
 `just add <package>`, `just update` (pull template changes).
+The `Justfile` belongs to the template: add this project's own recipes to
+`project.just`.
 
 `just install-tool` installs the project's `[project.scripts]` on `PATH`
 (`uv tool install --editable`, so the commands follow the working tree).
