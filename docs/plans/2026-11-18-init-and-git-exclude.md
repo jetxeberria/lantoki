@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | Proposed, awaiting approval |
+| **Status** | Approved and executed 2026-11-18 |
 | **Implements** | D-014 (DEV-7), D-015 (INS-9) in the [specification](../SPECIFICATION.md) |
 | **Depends on** | galtzagorri G-006 (INI-1) and G-007 (PKG-2) |
 | **Date** | 2026-11-18 |
@@ -47,6 +47,13 @@ After galtzagorri G-006 is pushed:
 ## Phase 3: existing repositories
 
 Run `lantoki sync repo <path>` once in each repository that already has lantoki outputs, to write their blocks. Their `.gitignore` entries can then be removed by each project, in its own time.
+
+## Results (2026-11-18)
+
+- **Phase 1:** 12 new tests (146 in total). `plan user` still reports 25 unchanged.
+- **Phase 2:** `just init` was run without `install-system`, because sudo needs a password that the agent does not have. All other steps ran: `init-git`, `install-user`, `install-env`, `install-tool-editable`, `init-hook` (`sync-user`: 25 unchanged), `init-ai` (6 unchanged) and `check`. They ended with *all checks passed*. The tree is clean, and `.git/info/exclude` holds the 6 targets.
+- **Phase 3:** lantoki is the only repository with a manifest. An empty manifest for a temp folder was deleted: an early, unisolated run of galtzagorri's `init-ai` test had created it.
+- **Found:** the template's `install-python` (`pdm use --first`) recreates `.venv` on every run, so `init` and `update` reinstall every dependency. They still end in a working environment, but slowly. Fixing it is template work, outside this plan.
 
 ## Risks
 
