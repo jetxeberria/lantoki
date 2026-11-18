@@ -12,9 +12,8 @@
 #   system  apt packages, need sudo .......... install-system
 #   user    ~/.local/bin (uv, pdm, yamlfmt, .. install-user
 #           gh)
-#   python  project .venv managed by PDM ..... install-env
-#           (ruff, yamllint, pytest, copier,
-#           pre-commit: pinned in pdm.lock)
+#   python  .venv from pdm.lock .............. install-env, sync
+#           (dependencies and every group)
 #   git     pre-push hooks (Git LFS, then .... install-hooks
 #           `just check` via pre-commit)
 #
@@ -168,32 +167,40 @@ install-gh:
     run tar -xvzf "$name.tar.gz" "$name/bin/gh"
     run install -v -m 0755 "$name/bin/gh" "{{ bin_dir }}/gh"
 
-# Python layer: interpreter, PDM plugins and dependencies in .venv, then the git hooks
-install-env: install-python install-plugins install-deps install-hooks
-
-# Select the minimum Python version in requires-python (PDM downloads it if missing)
-install-python:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    {{ run }}
-    version=$(run sed -nE 's/^requires-python = ">=([0-9]+\.[0-9]+)"$/\1/p' pyproject.toml)
-    [ -n "$version" ] || { {{ warn }} 'pyproject.toml needs requires-python = ">=3.X"'; exit 1; }
-    {{ info }} "Python $version, from requires-python in pyproject.toml"
-    if ! run pdm use --first "$version"; then
-        {{ warn }} "Python $version not found on the system: downloading a standalone build"
-        run pdm python install "$version"
-        run pdm use --first "$version"
-    fi
+# Python layer: PDM plugins, the environment (sync), then the git hooks
+install-env: install-plugins sync install-hooks
 
 # Install the PDM plugins declared in pyproject.toml
 install-plugins:
     @{{ info }} "plugins listed in [tool.pdm] plugins of pyproject.toml"
     pdm install --plugins
 
-# Install Python dependencies from pdm.lock into .venv (uv backend, see pdm.toml)
-install-deps:
-    @{{ info }} "into .venv from pdm.lock (created if missing); uv does the work (use_uv in pdm.toml)"
-    pdm install
+# Make .venv match pyproject.toml exactly: the only way it changes (ENV-2)
+sync: sync-python sync-lock sync-env
+
+# Install the Python that requires-python names, only when none matches it
+sync-python:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{ run }}
+    version=$(run sed -nE 's/^requires-python = ">=([0-9]+\.[0-9]+)"$/\1/p' pyproject.toml)
+    [ -n "$version" ] || { {{ warn }} 'pyproject.toml needs requires-python = ">=3.X"'; exit 1; }
+    if run pdm python find "$version"; then
+        {{ info }} "Python $version (requires-python) found, nothing to install"
+        exit 0
+    fi
+    {{ warn }} "Python $version not found: downloading a standalone build"
+    run pdm python install "$version"
+
+# Re-resolve pdm.lock for pyproject.toml, keeping the locked versions that still fit
+sync-lock:
+    @{{ info }} "-G :all: every group, including ones the template adds; --update-reuse: only what changed is re-resolved"
+    pdm lock -G :all --update-reuse
+
+# The development environment (.venv): dependencies and every group, project editable (ENV-4)
+sync-env:
+    @{{ info }} "--clean removes what pdm.lock does not list; .venv is created from requires-python if missing"
+    pdm sync -G :all --clean
 
 # Install the git hooks: Git LFS, then pre-commit running `just check` before each push
 install-hooks:
@@ -207,7 +214,7 @@ install-hooks:
     {{ info }} "--force: pre-commit owns pre-push after the first run, and LFS refuses to share it"
     run git lfs install --local --force
     if ! run pdm run pre-commit --version; then
-        {{ warn }} "pre-commit is not installed yet: run just install-env"
+        {{ warn }} "pre-commit is not installed yet: run just sync"
         exit 0
     fi
     {{ info }} "config: .pre-commit-config.yaml; the LFS hook is kept as pre-push.legacy and still runs"

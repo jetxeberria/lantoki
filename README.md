@@ -39,7 +39,10 @@ The `Justfile` belongs to the template: add this project's own recipes to
 
 ## Packaging
 
-The project is a package (`pdm-backend`). Its commands are the
+The project is a package (`pdm-backend`): the wheel carries the production
+`dependencies` only, as version ranges, and installs with `pip`, `uv` or `pipx`
+without PDM. `just check` installs it alone in a throwaway environment
+(`just check-package`) to prove it works from those requirements. Its commands are the
 `[project.scripts]` entries in `pyproject.toml`; inside the project,
 `pdm run <command>` runs them. To put them on `PATH`:
 
@@ -88,6 +91,15 @@ just test     # pytest with coverage (fails under 75 %); `just test --no-cov tes
 just docs     # build the documentation site
 ```
 
+## Environments
+
+One development environment, `.venv`: `dependencies` (production) plus every
+dependency group (`base`, `dev`, …), resolved together in `pdm.lock`, with the
+project editable. It always follows `pyproject.toml`: `just add`,
+`just remove`, `just upgrade` and `just update` sync it by themselves; after
+pulling a change to `pyproject.toml` or `pdm.lock`, run `just sync`. Never
+install into `.venv` by hand: the next sync removes it.
+
 ## Dependencies
 
 - `dependencies` (runtime) and the `dev` group belong to this project.
@@ -97,8 +109,8 @@ just docs     # build the documentation site
 
 ## Template updates
 
-`just update` merges the latest template, relocks (`pdm lock --update-reuse`),
-reinstalls, and runs `just check`; commit the result together with `pdm.lock`.
+`just update` merges the latest template, syncs the environment (`just sync`)
+and runs `just check`; commit the result together with `pdm.lock`.
 It stops on merge conflicts; resolve them, then run `just update-sync`.
 
 The Python version is a template answer (`python_min`, kept in

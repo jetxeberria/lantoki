@@ -53,8 +53,8 @@ init-ai:
     {{ info }} "asks once per machine which project sources apply (lantoki sync repo . --select to change)"
     run lantoki sync repo .
 
-# Run every check: formatting, linters and tests
-check: fmt-check lint test
+# Run every check: formatting, linters, tests and the package on its own
+check: fmt-check lint test check-package
     @{{ info }} "all checks passed"
 
 # Run the test suite (extra arguments go to pytest)
@@ -64,18 +64,21 @@ test *args:
 
 # Add dependencies, e.g. `just add requests` or `just add -dG dev pytest-cov`
 add +args:
-    @{{ info }} "updates pyproject.toml and pdm.lock, then installs"
-    pdm add {{ args }}
+    @{{ info }} "edits pyproject.toml and pdm.lock, then syncs both environments"
+    pdm add --no-sync {{ args }}
+    just sync
 
 # Remove dependencies, e.g. `just remove requests`
 remove +args:
-    @{{ info }} "updates pyproject.toml and pdm.lock, then uninstalls"
-    pdm remove {{ args }}
+    @{{ info }} "edits pyproject.toml and pdm.lock, then syncs both environments"
+    pdm remove --no-sync {{ args }}
+    just sync
 
 # Upgrade dependencies (all of them when none are given)
 upgrade *args:
-    @{{ info }} "within the pyproject.toml constraints; rewrites pdm.lock"
-    pdm update {{ args }}
+    @{{ info }} "within the pyproject.toml constraints; rewrites pdm.lock, then syncs both environments"
+    pdm update --no-sync {{ args }}
+    just sync
 
 # Update from the template and leave a working repository: merge, relock, reinstall, check.
 # Extra arguments go to copier, e.g. `just update --data python_min=3.16`
@@ -85,7 +88,7 @@ update *args:
     just update-sync
 
 # Finish a template update: stop on conflicts, relock, reinstall, check
-update-sync: update-conflicts install-python update-lock install-plugins install-deps install-hooks check
+update-sync: update-conflicts install-plugins sync install-hooks check
     @{{ info }} "review the changes, then commit them together with pdm.lock"
 
 # Apply the latest template changes with copier (needs a clean working tree)
@@ -108,11 +111,6 @@ update-conflicts:
         exit 1
     fi
 
-# Re-resolve pdm.lock for the new constraints, keeping the locked versions that still fit
-update-lock:
-    @{{ info }} "-G :all: groups the template adds too; --update-reuse: only what pyproject.toml requires changes"
-    pdm lock -G :all --update-reuse
-
 # Bump the version: major, minor, micro, pre-release, no-pre-release, ... (see `pdm bump -h`)
 bump part:
     @{{ info }} "rewrites version in pyproject.toml (pdm-bump plugin)"
@@ -132,10 +130,10 @@ install-tool:
     run just build
     wheels=(dist/*.whl)
     [ ${#wheels[@]} -eq 1 ] || { {{ warn }} "expected one wheel in dist/, found ${#wheels[@]}"; exit 1; }
-    {{ info }} "installed as a user would get it; run it again to pick up code changes"
+    {{ info }} "installed as a user would get it (production requirements, ranges resolved by uv); run it again to pick up code changes"
     run uv tool install --force "${wheels[0]}"
 
-# Install [project.scripts] on PATH from the sources: edits apply without reinstalling
+# Install [project.scripts] on PATH from the sources, for development: edits apply without reinstalling
 install-tool-editable:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -143,6 +141,37 @@ install-tool-editable:
     {{ require_scripts }}
     {{ info }} "editable: the commands follow the working tree; reinstall after changing [project.scripts]"
     run uv tool install --force --editable .
+
+# Install the built package alone in a throwaway environment: it must import and load its commands (ENV-5)
+check-package:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{ run }}
+    run just build
+    wheels=(dist/*.whl)
+    [ ${#wheels[@]} -eq 1 ] || { {{ warn }} "expected one wheel in dist/, found ${#wheels[@]}"; exit 1; }
+    version=$(sed -nE 's/^requires-python = ">=([0-9]+\.[0-9]+)"$/\1/p' pyproject.toml)
+    mapfile -t modules < <(find src -mindepth 2 -maxdepth 2 -name __init__.py -printf '%h\n' | xargs -rn1 basename | sort)
+    [ ${#modules[@]} -gt 0 ] || { {{ warn }} "no package under src/ to import"; exit 1; }
+    tmp=$(mktemp -d)
+    trap 'rm -rf "$tmp"' EXIT
+    {{ info }} "only the wheel and its production requirements; removed on exit"
+    run uv venv --quiet --python "$version" "$tmp/venv"
+    run uv pip install --quiet --python "$tmp/venv/bin/python" "${wheels[0]}"
+    dist=$(basename "${wheels[0]}" | cut -d- -f1)
+    run "$tmp/venv/bin/python" - "$dist" "${modules[@]}" <<'PY'
+    import importlib
+    import importlib.metadata
+    import sys
+
+    dist, *modules = sys.argv[1:]
+    for module in modules:
+        importlib.import_module(module)
+        print(f"import {module}: ok")
+    for entry in importlib.metadata.distribution(dist).entry_points.select(group="console_scripts"):
+        entry.load()
+        print(f"command {entry.name} -> {entry.value}: ok")
+    PY
 
 # Remove the commands installed by install-tool or install-tool-editable
 uninstall-tool:
