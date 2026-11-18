@@ -4,9 +4,9 @@
 |---|---|
 | **Status** | Active |
 | **Owner** | jetxeberria |
-| **Last change** | 2026-11-18 — D-014, D-015 (`just init` reproduces the setup; lantoki excludes its repo outputs from git) |
+| **Last change** | 2026-11-18 — D-018 (every test lives under the root `tests/` folder) |
 
-This document is the authority on what lantoki is, what it must do and **why**. Every requirement has an ID and a rationale. Code, tests and docs implement these requirements and cite their IDs; when they disagree with this document, this document wins until it is changed through [§10 Change control](#10-change-control).
+This document is the authority on what lantoki is, what it must do and **why**. Every requirement has an ID and a rationale. Code, tests and docs implement these requirements and cite their IDs; when they disagree with this document, this document wins until it is changed through [§12 Change control](#12-change-control).
 
 ---
 
@@ -24,7 +24,7 @@ This document is the authority on what lantoki is, what it must do and **why**. 
 
 **SCO-1. In scope:** user-level customization (applies to every project on the machine) and project-level customization (applied to a chosen repository), for every supported harness.
 
-**SCO-2. Supported harnesses** are exactly those with a provider profile in `src/lantoki/providers/` (see §5). At the time of writing: GitHub Copilot (VS Code and Copilot CLI) and Claude Code (CLI and the desktop app's Code tab).
+**SCO-2. Supported harnesses** are exactly those with a provider profile in `src/lantoki/providers/` (see §6). At the time of writing: GitHub Copilot (VS Code and Copilot CLI) and Claude Code (CLI and the desktop app's Code tab).
 
 **SCO-3. Platform:** Linux. Paths follow XDG conventions.
 
@@ -133,11 +133,11 @@ Every customization is one file or one folder: deleting it removes the customiza
 
 **SRC-8. `repo_instructions`** (`project/repo-instructions.md`) holds always-on instructions for a repository, compiled to each provider's repo-wide instructions file. Providers that read the same file (`AGENTS.md`) share one target (CMP-2).
 
+> **Why one file.** Before D-010 there were two placeholder sources (`AGENTS.md`, `copilot-instructions.md`); Copilot reads either, so keeping both would load the same instructions twice.
+
 **SRC-9. Code that belongs to a customization lives with it, never in the core.** `src/lantoki/` holds only lantoki's core (loading, compiling, installing); `customizations/` holds the customizations and everything only they use, grouped so that removing one is deleting its file or folder. A skill's scripts stay in its folder (SRC-6). An MCP server's code stays in its folder (SRC-7), `customizations/<scope>/mcp/<name>/`, beside `server.toml`: `server.py`, a single-file script with its dependencies in an inline metadata block (PEP 723) and the shebang `#!/usr/bin/env -S uv run --script`; its tests follow QLT-6. There is no second package or `pyproject.toml`: the server is part of lantoki's repository and the dependencies it alone needs stay out of lantoki's. The loader reads only `server.toml`; the code is never compiled or installed into a harness. *Amended by D-017: the code previously lived in a separate `servers/<name>/` folder. Amended by D-018: its tests previously lived in the server's folder.*
 
 > **Why.** The `python-verification-gate` server sat in `src/lantoki/` beside the compiler, and its `mcp` dependency was one of lantoki's, although only one MCP declaration uses it. Separating core from customization code makes each easier to work on, and a customization trivial to delete. A PEP 723 script keeps the server's dependency declared next to it without building a second package (D-016).
-
-> **Why one file.** Before D-010 there were two placeholder sources (`AGENTS.md`, `copilot-instructions.md`); Copilot reads either, so keeping both would load the same instructions twice.
 
 ## 6. Provider profile model
 
@@ -181,11 +181,11 @@ Every customization is one file or one folder: deleting it removes the customiza
 
 **CMP-2. Target collisions.** Two artifacts with the same target and identical content are merged; with different content, compilation fails before anything is written.
 
-**CMP-4. Empty aggregates.** A `json` output with no matching sources produces no artifact (an empty MCP config is not installed).
-
 > **Why.** Two providers may legitimately target the same file (e.g. both read `AGENTS.md`); different contents would make the last writer win silently.
 
 **CMP-3. Validation** of all sources and profiles runs before compilation and reports every error with file and field.
+
+**CMP-4. Empty aggregates.** A `json` output with no matching sources produces no artifact (an empty MCP config is not installed).
 
 ## 8. Installation
 
@@ -274,7 +274,7 @@ Sources added since the last sync are asked about when a terminal is available; 
 
 **DEV-5. lantoki stays an installable package.** It keeps `[project.scripts]` and a PEP 517 build backend, and the template's `just install-tool-editable` (galtzagorri PKG-2) installs it on `PATH` with `uv tool install --editable`; `just install-tools` stays as lantoki's name for it (CLI-2). The template's `just install-tool` installs the built wheel instead, to check the package as a user would get it. *Amended by D-014: the recipe now comes from the template.*
 
-> **Why.** CLI-2 needs `lantoki` and `python-verification-gate` on `PATH`. The template generates non-installable projects (`distribution = false`), so packaging is either a template option (preferred, see the [adoption plan](plans/2026-11-17-galtzagorri-adoption.md)) or a deliberate override of template-owned lines that every update must keep.
+> **Why.** CLI-2 needs `lantoki` on `PATH`. The template generates non-installable projects by default (`distribution = false`); its packaging option (galtzagorri PKG-2) makes lantoki installable without overriding template-owned lines, which every update would otherwise have to keep. MCP server scripts are not part of the package: they are linked separately (CLI-2, SRC-9).
 
 **DEV-6. Adopting the template changes no compiled output.** After the migration, `lantoki plan user` and the golden tests report exactly what they reported before.
 
@@ -335,10 +335,10 @@ Facts the profiles rely on. Update with the date verified.
 | D-009 | 2026-11-16 | Provider logic is data in profiles; the core is provider-agnostic (PRI-3, PRI-4). | The number of providers will grow; adding one must be trivial and risk-free. |
 | D-010 | 2026-11-16 | Implementation clarifications: `tools` allowed in prompts (SRC-3); one repo-instructions source shared through `AGENTS.md` (SRC-8); profiles read with `tomllib` (PRF-1); no empty JSON aggregates (CMP-4); `--adopt-commands` for CLI registrations (INS-6); new repo sources never installed silently (INS-7); exit codes (CLI-1). | Found while migrating the existing sources and comparing against the previous installer's output (`tests/fixtures/baseline`). |
 | D-011 | 2026-11-16 | A `markdown` output may set `file`: the target is a folder holding that one generated file, and the folder is what gets linked (PRF-4, INS-1, INS-6). Claude Code prompts use it for `skills/<name>/SKILL.md`. | Claude Code prompts were installed as a real folder holding only a `SKILL.md` symlink, unlike every other skill; the owner wants the folder itself to be the link. |
-| D-012 | 2026-11-17 | The repository's development tooling follows the galtzagorri template: copier link, PDM + just, template-owned `base` group, Python ≥ 3.15, template recipes configured through `pyproject.toml`, packaging kept (DEV-1 … DEV-6). Executed by the [adoption plan](plans/2026-11-17-galtzagorri-adoption.md). | lantoki's hand-written uv tooling had drifted from the owner's other projects; a single template keeps them aligned and makes updates verifiable. |
+| D-012 | 2026-11-17 | The repository's development tooling follows the galtzagorri template: copier link, PDM + just, template-owned `base` group, Python ≥ 3.15, template recipes configured through `pyproject.toml`, packaging kept (DEV-1 … DEV-6). | lantoki's hand-written uv tooling had drifted from the owner's other projects; a single template keeps them aligned and makes updates verifiable. |
 | D-013 | 2026-11-18 | lantoki's own recipes move from below the Justfile's project marker to `project.just`; the `Justfile` becomes wholly template-owned (DEV-4, galtzagorri G-005 / JUS-1). | One owner per file: template updates replace the Justfile without conflicts. Owner's request. |
 | D-014 | 2026-11-18 | `just init` (galtzagorri INI-1) is the one command that reproduces lantoki's setup on a new machine; lantoki's `init-project` hook runs `sync-user` (DEV-7); `install-tools` becomes lantoki's name for the template's `install-tool-editable` (DEV-5). | PUR-2 asked for one command; the template now provides it, in the right order. Owner's request. |
 | D-015 | 2026-11-18 | `sync repo` keeps its targets out of git through a managed block in `.git/info/exclude`, instead of asking each repository to list them in `.gitignore` (INS-9). | Needed for `just init` (D-014) to leave a clean tree in any project, without the template duplicating lantoki's provider knowledge. |
-| D-016 | 2026-11-18 | Code only a customization uses lives with it under `customizations/`, never in `src/lantoki/` (SRC-9). An MCP server is one folder, `customizations/<scope>/servers/<name>/`, holding a PEP 723 single-file script and its tests, linked onto `PATH` by `just install-tools` (CLI-2, DEV-7); `python-verification-gate` moves there and `mcp` leaves lantoki's dependencies. No second package. Executed by the [separation plan](plans/2026-11-18-customization-code-separation.md). | Customization code was mixed with the core modules; a clear separation eases development and makes deleting a customization deleting a folder. Owner's request; a separate `pyproject.toml` per server was rejected as a second package. |
-| D-017 | 2026-11-18 | Each MCP server is a folder, `<scope>/mcp/<name>/`, holding its declaration (`server.toml`) and, if lantoki provides it, its code and tests; the scope-level `mcp.toml` is retired, and a leftover one fails validation (SRC-7, SRC-2, SRC-9, CLI-2). Executed by the [MCP folders plan](plans/2026-11-18-mcp-server-folders.md). | Deleting a customization must be deleting one folder (owner's request); one shared `mcp.toml` kept a server's declaration apart from its code. |
+| D-016 | 2026-11-18 | Code only a customization uses lives with it under `customizations/`, never in `src/lantoki/` (SRC-9). An MCP server is one folder, `customizations/<scope>/servers/<name>/`, holding a PEP 723 single-file script and its tests, linked onto `PATH` by `just install-tools` (CLI-2, DEV-7); `python-verification-gate` moves there and `mcp` leaves lantoki's dependencies. No second package. | Customization code was mixed with the core modules; a clear separation eases development and makes deleting a customization deleting a folder. Owner's request; a separate `pyproject.toml` per server was rejected as a second package. |
+| D-017 | 2026-11-18 | Each MCP server is a folder, `<scope>/mcp/<name>/`, holding its declaration (`server.toml`) and, if lantoki provides it, its code and tests; the scope-level `mcp.toml` is retired, and a leftover one fails validation (SRC-7, SRC-2, SRC-9, CLI-2). | Deleting a customization must be deleting one folder (owner's request); one shared `mcp.toml` kept a server's declaration apart from its code. |
 | D-018 | 2026-11-18 | All tests live under the root `tests/` folder; tests of customization code go in `tests/customizations/`, not beside the code (QLT-6, SRC-9, SRC-7). | Owner's rule: one place for every test. |
