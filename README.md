@@ -21,20 +21,38 @@ src/lantoki/providers/     one TOML profile per provider (paths, fields, tool na
 ## Getting started
 
 ```bash
-sudo apt install just   # bootstrap: everything else is installed by `just install`
-just install            # system packages, user tools and the PDM environment
+sudo apt install just   # bootstrap: everything else is installed by `just init`
+just init               # tools, environment, commands on PATH, AI setup, checks
 just                    # list recipes
 ```
+
+`just init` is safe to run again. It runs, in order: `init-git` (only outside
+a git repository), `install`, `install-tool-editable`, the project's own
+`init-project` recipe (if `project.just` has one), `init-ai` (AI-assistant
+customization with [lantoki](https://github.com/jetxeberria/lantoki), when
+installed) and `check`.
 
 Common recipes: `just fmt`, `just lint`, `just test`, `just check`,
 `just add <package>`, `just update` (pull template changes).
 The `Justfile` belongs to the template: add this project's own recipes to
 `project.just`.
 
-`just install-tool` installs the project's `[project.scripts]` on `PATH`
-(`uv tool install --editable`, so the commands follow the working tree).
+## Packaging
+
+The project is a package (`pdm-backend`). Its commands are the
+`[project.scripts]` entries in `pyproject.toml`; inside the project,
+`pdm run <command>` runs them. To put them on `PATH`:
+
+| Recipe | Does |
+|---|---|
+| `just build` | sdist and wheel in `dist/` |
+| `just install-tool` | builds, then installs the wheel with `uv tool`: exactly what a user gets; run again after changes |
+| `just install-tool-editable` | installs from the sources: edits apply without reinstalling |
+| `just uninstall-tool` | removes either install |
 
 ## Using lantoki
+
+On a new machine, `git clone` this repository, then `sudo apt install just` and `just init`: that installs the tooling, puts `lantoki` and `python-verification-gate` on `PATH`, installs every user-level customization (`sync-user`) and this repository's own, and runs the checks (PUR-2, DEV-7).
 
 ```bash
 just install-tools    # put `lantoki` and `python-verification-gate` on PATH (editable)
@@ -45,7 +63,7 @@ just sync-user        # install user-level customizations for every provider
 just sync-repo ~/code/my-app --all   # install project-level customizations into a repository
 ```
 
-`lantoki sync repo` asks which project sources apply to the repository and remembers the answer (`--select` to ask again, `--all` for everything). Add the installed paths to that repository's `.gitignore`: they are machine-specific.
+`lantoki sync repo` asks which project sources apply to the repository and remembers the answer (`--select` to ask again, `--all` for everything). The installed paths are machine-specific, so lantoki lists them in the repository's `.git/info/exclude` (INS-9): nothing to add to `.gitignore`.
 
 ## Writing customizations
 

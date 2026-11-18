@@ -1,9 +1,9 @@
 set shell := ["bash", "-euo", "pipefail", "-c"]
 
-import 'tooling.just'
+# Exits the shebang recipe successfully when the project declares no commands
+require_scripts := "grep -q '^\\[project.scripts\\]' pyproject.toml || { " + info + " 'no [project.scripts] in pyproject.toml: no commands to install'; exit 0; }"
 
-# Rendered only for packaged projects (template answer `packaged`)
-import? 'packaging.just'
+import 'tooling.just'
 
 # Project-owned recipes: add them to project.just, never to this file (JUS-1)
 import? 'project.just'
@@ -12,14 +12,46 @@ import? 'project.just'
 default:
     @just --list --unsorted
 
-# Initialise git and its hooks (run once, right after generating the project)
-init: init-git install-hooks
+# Make this checkout ready to work, on a new machine too; safe to run again (INI-1)
+init: init-git install install-tool-editable init-hook init-ai check
+    @{{ info }} "ready to work"
 
-# Create the git repository and stage the generated files
+# Create the git repository and stage the files, unless it already exists
 init-git:
-    @{{ info }} "staged files are ready for the first commit"
-    git init
-    git add -A -v
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{ run }}
+    if git rev-parse --git-dir >/dev/null 2>&1; then
+        {{ info }} "already a git repository, skipping"
+        exit 0
+    fi
+    run git init
+    run git add -A -v
+    {{ info }} "staged files are ready for the first commit"
+
+# Run the project's own setup (recipe init-project in project.just), if it defines one
+init-hook:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{ run }}
+    if ! just --show init-project >/dev/null 2>&1; then
+        {{ info }} "project.just defines no init-project recipe, skipping"
+        exit 0
+    fi
+    run just init-project
+
+# Install the AI-assistant customization for this repository with lantoki, when installed
+init-ai:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{ run }}
+    if ! command -v lantoki >/dev/null 2>&1; then
+        {{ warn }} "lantoki not found, skipping the AI-assistant setup; to get it:"
+        {{ warn }} "  git clone git@github.com:jetxeberria/lantoki.git ~/repos/lantoki && just -f ~/repos/lantoki/Justfile init"
+        exit 0
+    fi
+    {{ info }} "asks once per machine which project sources apply (lantoki sync repo . --select to change)"
+    run lantoki sync repo .
 
 # Run every check: formatting, linters and tests
 check: fmt-check lint test
@@ -88,8 +120,41 @@ bump part:
 
 # Build the sdist and wheel into dist/
 build:
-    @{{ info }} "output in dist/"
+    @{{ info }} "output in dist/ (cleaned first)"
     pdm build
+
+# Build the package and install its [project.scripts] on PATH from the wheel (uv tool)
+install-tool:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{ run }}
+    {{ require_scripts }}
+    run just build
+    wheels=(dist/*.whl)
+    [ ${#wheels[@]} -eq 1 ] || { {{ warn }} "expected one wheel in dist/, found ${#wheels[@]}"; exit 1; }
+    {{ info }} "installed as a user would get it; run it again to pick up code changes"
+    run uv tool install --force "${wheels[0]}"
+
+# Install [project.scripts] on PATH from the sources: edits apply without reinstalling
+install-tool-editable:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{ run }}
+    {{ require_scripts }}
+    {{ info }} "editable: the commands follow the working tree; reinstall after changing [project.scripts]"
+    run uv tool install --force --editable .
+
+# Remove the commands installed by install-tool or install-tool-editable
+uninstall-tool:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{ run }}
+    name=$(sed -nE 's/^name = "(.*)"$/\1/p' pyproject.toml | head -n 1)
+    if ! uv tool list | grep -q "^$name "; then
+        {{ info }} "$name is not installed as a uv tool, nothing to do"
+        exit 0
+    fi
+    run uv tool uninstall "$name"
 
 # Remove build artefacts and caches
 clean:

@@ -84,8 +84,8 @@ docs = [
     "typer>=0.9.0",
 ]
 
-# Installable package (template answer `packaged`): `just install-tool` puts
-# the [project.scripts] entry points on PATH
+# Every project is a package (galtzagorri PKG-2): `just build`, then
+# `just install-tool` or `just install-tool-editable` put [project.scripts] on PATH
 [build-system]
 requires = ["pdm-backend>=2.5"]
 build-backend = "pdm.backend"

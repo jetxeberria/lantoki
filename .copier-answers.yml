@@ -1,8 +1,7 @@
 # Changes here will be overwritten by Copier
-_commit: 74e4581
+_commit: e627ecc
 _src_path: gh:jetxeberria/galtzagorri
 github_or_gitlab: GitHub
-packaged: true
 project_description: Single entry point for AI coding-assistant customization, mapped
     to every harness (GitHub Copilot, Claude Code, ...)
 project_name: lantoki

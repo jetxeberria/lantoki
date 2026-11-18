@@ -5,7 +5,10 @@
 # Justfile, tooling.just or packaging.just.
 
 # Put `lantoki` and `python-verification-gate` on PATH, editable (CLI-2, DEV-5)
-install-tools: install-tool
+install-tools: install-tool-editable
+
+# Called by the template's `just init`: install the user-level customizations (DEV-7)
+init-project: sync-user
 
 # Validate every source and provider profile
 validate *args:
