@@ -4,11 +4,23 @@
 # `just update` never changes it. Recipe names must not repeat those of the
 # Justfile, tooling.just or packaging.just.
 
-# Put `lantoki` and `python-verification-gate` on PATH, editable (CLI-2, DEV-5)
-install-tools: install-tool-editable
+# Put `lantoki` and every MCP server script on PATH (CLI-2, DEV-5)
+install-tools: install-tool-editable install-servers
 
-# Called by the template's `just init`: install the user-level customizations (DEV-7)
-init-project: sync-user
+# Link every MCP server script onto PATH as ~/.local/bin/<name>; uv runs it with its own dependencies (CLI-2, SRC-9)
+install-servers:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    mkdir -p ~/.local/bin
+    for script in "$PWD"/customizations/*/servers/*/server.py; do
+        [ -f "$script" ] || continue
+        name=$(basename "$(dirname "$script")")
+        echo "linking $name -> $script"
+        ln -sfn "$script" ~/.local/bin/"$name"
+    done
+
+# Called by the template's `just init` after it installs lantoki: the MCP servers, then the user-level customizations (DEV-7)
+init-project: install-servers sync-user
 
 # Validate every source and provider profile
 validate *args:
@@ -32,7 +44,7 @@ sync-repo path *args:
 
 # Run security analysis (bandit; extra arguments go to it)
 security *args:
-    pdm run bandit -v -r src/lantoki {{ args }}
+    pdm run bandit -v -r src/lantoki customizations/*/servers/*/server.py {{ args }}
 
 # Build the documentation site
 docs: docs-build

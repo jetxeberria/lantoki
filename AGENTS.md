@@ -14,6 +14,7 @@ lantoki is the single source of truth for all AI coding-assistant customization,
 | Path | Role |
 |---|---|
 | `customizations/` | neutral sources ([format](docs/source-format.md)) |
+| `customizations/<scope>/servers/<name>/` | MCP server code: a PEP 723 `server.py` and its `tests/` (SRC-9); customization code never goes in `src/lantoki/` |
 | `src/lantoki/providers/*.toml` | provider profiles ([schema](docs/provider-profiles.md)) — the only provider-specific files |
 | `src/lantoki/sources.py`, `profiles.py` | load and validate sources and profiles |
 | `src/lantoki/transforms.py`, `compiler.py` | generic compilation (pure, no writes) |

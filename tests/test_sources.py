@@ -105,3 +105,16 @@ def test_given_repo_instructions_in_user_scope_when_loading_then_it_is_ignored(t
     root = write_tree(tmp_path / "sources", {"user/repo-instructions.md": "---\ndescription: x\n---\n"})
 
     assert load_sources(root) == []
+
+
+def test_given_server_project_in_scope_when_loading_then_it_is_not_a_source(tmp_path: Path) -> None:
+    root = write_tree(
+        tmp_path / "sources",
+        {
+            "user/servers/gate/pyproject.toml": "[project]\nname = 'gate'\n",
+            "user/servers/gate/src/gate/__init__.py": "",
+            "user/servers/gate/README.md": "no front matter\n",
+        },
+    )
+
+    assert load_sources(root) == []

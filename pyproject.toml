@@ -20,7 +20,6 @@ classifiers = [
 # Runtime dependencies: owned by the project (`just add <package>`)
 dependencies = [
     "dynaconf>=3.2.0",
-    "mcp>=2",
     "pydantic>=2.14.3",
     "pyyaml>=6.0.3",
     "structlog>=25.5.0",
@@ -35,7 +34,6 @@ Issues = "https://github.com/jetxeberria/lantoki/-/issues"
 
 [project.scripts]
 lantoki = "lantoki.cli:app"
-python-verification-gate = "lantoki.python_verification_gate:main"
 
 [dependency-groups]
 # Owned by the galtzagorri template: tools its recipes need, as minimum versions.
@@ -96,11 +94,13 @@ plugins = ["pdm-bump"]
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]
-testpaths = ["tests"]
+# MCP server scripts keep their own tests next to them (SRC-9)
+testpaths = ["tests", "customizations"]
 # lantoki (QLT-1, DEV-4): coverage gate and reports on every `just test`;
 # run one file with `just test --no-cov tests/test_x.py`
 addopts = [
     "--cov=src",
+    "--cov=customizations",
     "--cov-report=term-missing",
     "--cov-fail-under=75",
     "--cov-report=html:docs/_build/coverage/unit",
@@ -116,6 +116,8 @@ filterwarnings = [
 
 [tool.coverage.run]
 data_file = "docs/_build/coverage/test/.coverage"
+# Measure server code, not its tests (SRC-9)
+omit = ["customizations/*/servers/*/tests/*"]
 
 # lantoki (DEV-4): Ruff ALL, 120 columns
 [tool.ruff]
@@ -136,7 +138,7 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**/*.py" = [
+"**/tests/**/*.py" = [
     "S101",     # assert is how pytest checks results
     "S108",     # tmp paths in fixtures are intentional
     "ARG001",   # pytest fixtures requested only for their side effects
@@ -146,6 +148,9 @@ ignore = [
     "S603",     # tests run the installer script with sys.executable
     "PLR0917",  # pytest injects fixtures and parameters positionally
 ]
+# Server scripts and their tests are standalone files, not packages (SRC-9); an __init__.py
+# in a server's tests/ would also clash with lantoki's own `tests` package
+"customizations/*/servers/**/*.py" = ["INP001"]
 # Owned by the galtzagorri template (DEV-1): kept as rendered, not edited here
 "tests/test_package.py" = [
     "D100",     # undocumented-public-module

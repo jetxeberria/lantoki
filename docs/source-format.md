@@ -12,6 +12,7 @@ customizations/
     agents/<name>.md
     skills/<name>/SKILL.md (+ supporting files)
     mcp.toml
+    servers/<name>/              # code of an MCP server declared in mcp.toml (not a source)
   project/                       # chosen per repository with `lantoki sync repo`
     repo-instructions.md
     instructions/<name>.md
@@ -76,3 +77,5 @@ command = "python-verification-gate"   # on PATH (CLI-2); never an absolute repo
 args = []
 env = { API_TOKEN = "{{env:API_TOKEN}}" }
 ```
+
+A server whose code lives in lantoki is one folder, `<scope>/servers/<name>/` (SRC-9): `server.py`, a single-file script whose dependencies are declared in a PEP 723 block under the shebang `#!/usr/bin/env -S uv run --script`, and its tests in `tests/`. `just install-tools` (or `just install-servers`) links it onto `PATH` as `<name>`, the `command` above; lantoki's loader ignores the folder. Deleting the folder and its `mcp.toml` entry removes the server. Example: `user/servers/python-verification-gate/`.

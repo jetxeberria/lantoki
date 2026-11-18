@@ -55,10 +55,10 @@ without PDM. `just check` installs it alone in a throwaway environment
 
 ## Using lantoki
 
-On a new machine, `git clone` this repository, then `sudo apt install just` and `just init`: that installs the tooling, puts `lantoki` and `python-verification-gate` on `PATH`, installs every user-level customization (`sync-user`) and this repository's own, and runs the checks (PUR-2, DEV-7).
+On a new machine, `git clone` this repository, then `sudo apt install just` and `just init`: that installs the tooling, puts `lantoki` and the MCP server scripts in `customizations/*/servers/` on `PATH`, installs every user-level customization (`sync-user`) and this repository's own, and runs the checks (PUR-2, DEV-7).
 
 ```bash
-just install-tools    # put `lantoki` and `python-verification-gate` on PATH (editable)
+just install-tools    # put `lantoki` and every MCP server script on PATH
 
 just validate         # check every source and profile
 just plan-user        # dry-run: what would change in your home directory

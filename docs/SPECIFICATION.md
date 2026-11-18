@@ -88,6 +88,7 @@ All sources live under `customizations/` at the repository root:
 customizations/
   user/      instructions/*.md   prompts/*.md   agents/*.md   skills/<name>/   mcp.toml
   project/   repo-instructions.md   instructions/*.md   prompts/*.md   skills/<name>/   mcp.toml
+  <scope>/   servers/<name>/       server.py + tests/: an MCP server declared in that scope's mcp.toml (SRC-9)
 ```
 
 **SRC-1. Neutral dialect.** Sources use lantoki's own front-matter fields, placeholders and tool names, not any provider's.
@@ -129,6 +130,10 @@ customizations/
 > **Why.** Copilot VS Code (`servers`), Copilot CLI (`mcpServers`, `type = "local"`) and Claude Code (`mcpServers`, or a CLI registration at user scope) all differ; one neutral declaration is compiled to each.
 
 **SRC-8. `repo_instructions`** (`project/repo-instructions.md`) holds always-on instructions for a repository, compiled to each provider's repo-wide instructions file. Providers that read the same file (`AGENTS.md`) share one target (CMP-2).
+
+**SRC-9. Code that belongs to a customization lives with it, never in the core.** `src/lantoki/` holds only lantoki's core (loading, compiling, installing); `customizations/` holds the customizations and everything only they use, grouped so that removing one is deleting its folder (plus its declaration, for an MCP server). A skill's scripts stay in its folder (SRC-6). An MCP server's code is one folder, `customizations/<scope>/servers/<name>/`: `server.py`, a single-file script with its dependencies in an inline metadata block (PEP 723) and the shebang `#!/usr/bin/env -S uv run --script`, plus its tests in `tests/`. There is no second package or `pyproject.toml`: the server is part of lantoki's repository and the dependencies it alone needs stay out of lantoki's. The loader ignores `servers/`: it is not a source kind and is never compiled or installed into a harness.
+
+> **Why.** The `python-verification-gate` server sat in `src/lantoki/` beside the compiler, and its `mcp` dependency was one of lantoki's, although only one MCP declaration uses it. Separating core from customization code makes each easier to work on, and a customization trivial to delete. A PEP 723 script keeps the server's dependency declared next to it without building a second package (D-016).
 
 > **Why one file.** Before D-010 there were two placeholder sources (`AGENTS.md`, `copilot-instructions.md`); Copilot reads either, so keeping both would load the same instructions twice.
 
@@ -224,7 +229,7 @@ Sources added since the last sync are asked about when a terminal is available; 
 
 **CLI-1.** `lantoki validate`, `lantoki providers`, `lantoki plan user`, `lantoki plan repo <path> [--all]`, `lantoki sync user`, `lantoki sync repo <path> [--all|--select]`; `--provider` limits a run to some providers, `--adopt-commands` enables INS-6 for CLI registrations. Exit codes: 0 ok, 1 conflicts or failed steps, 2 invalid sources, profiles or options. `just` recipes wrap them.
 
-**CLI-2.** Supporting executables (the `python-verification-gate` MCP server) are installed on `PATH` with `just install-tools`, so profiles and MCP declarations never contain absolute paths.
+**CLI-2.** Supporting executables are installed on `PATH` with `just install-tools`, so profiles and MCP declarations never contain absolute paths: `lantoki` itself, and each MCP server script as `~/.local/bin/<name>`, a symlink to `customizations/<scope>/servers/<name>/server.py` (SRC-9) that `uv` runs with the script's own dependencies. *Amended by D-016: the `python-verification-gate` server used to be a second script of lantoki's own package.*
 
 > **Why.** MCP configs with an absolute path to the repo broke when the repo moved (D-006).
 
@@ -271,7 +276,7 @@ Sources added since the last sync are asked about when a terminal is available; 
 
 > **Why.** The migration is tooling only. PRI-6 makes this measurable: identical sources and profiles must give identical artifacts, so any difference is a migration bug.
 
-**DEV-7. `just init` reproduces the whole setup on a new machine (PUR-2).** lantoki uses the template's `just init` (galtzagorri INI-1), and its `project.just` defines the `init-project` hook as `sync-user`. On a fresh Linux machine, `git clone` + `sudo apt install just` + `just init` then: installs the tooling and the environment, puts `lantoki` and `python-verification-gate` on `PATH` (`install-tool-editable`, DEV-5), installs every user-level customization for every provider (`sync user`), installs lantoki's own project-level customizations (the template's `init-ai`) and runs `just check`.
+**DEV-7. `just init` reproduces the whole setup on a new machine (PUR-2).** lantoki uses the template's `just init` (galtzagorri INI-1), and its `project.just` defines the `init-project` hook as `install-servers` then `sync-user`. On a fresh Linux machine, `git clone` + `sudo apt install just` + `just init` then: installs the tooling and the environment, puts `lantoki` on `PATH` (`install-tool-editable`, DEV-5) and links every MCP server script after it (`install-servers`, CLI-2, SRC-9), installs every user-level customization for every provider (`sync user`), installs lantoki's own project-level customizations (the template's `init-ai`) and runs `just check`.
 
 > **Why.** PUR-2 requires that cloning the repository and running one command reproduces the whole setup; before this, it took `just setup`, `just install-tools` and `just sync-user`, in that order. The template already provides the entry point and the order (INI-1): `install-tool-editable` runs before `init-project`, so `lantoki` is on `PATH` when `sync-user` needs it. lantoki only adds what is specific to it.
 
@@ -330,3 +335,4 @@ Facts the profiles rely on. Update with the date verified.
 | D-013 | 2026-11-18 | lantoki's own recipes move from below the Justfile's project marker to `project.just`; the `Justfile` becomes wholly template-owned (DEV-4, galtzagorri G-005 / JUS-1). | One owner per file: template updates replace the Justfile without conflicts. Owner's request. |
 | D-014 | 2026-11-18 | `just init` (galtzagorri INI-1) is the one command that reproduces lantoki's setup on a new machine; lantoki's `init-project` hook runs `sync-user` (DEV-7); `install-tools` becomes lantoki's name for the template's `install-tool-editable` (DEV-5). | PUR-2 asked for one command; the template now provides it, in the right order. Owner's request. |
 | D-015 | 2026-11-18 | `sync repo` keeps its targets out of git through a managed block in `.git/info/exclude`, instead of asking each repository to list them in `.gitignore` (INS-9). | Needed for `just init` (D-014) to leave a clean tree in any project, without the template duplicating lantoki's provider knowledge. |
+| D-016 | 2026-11-18 | Code only a customization uses lives with it under `customizations/`, never in `src/lantoki/` (SRC-9). An MCP server is one folder, `customizations/<scope>/servers/<name>/`, holding a PEP 723 single-file script and its tests, linked onto `PATH` by `just install-tools` (CLI-2, DEV-7); `python-verification-gate` moves there and `mcp` leaves lantoki's dependencies. No second package. Executed by the [separation plan](plans/2026-11-18-customization-code-separation.md). | Customization code was mixed with the core modules; a clear separation eases development and makes deleting a customization deleting a folder. Owner's request; a separate `pyproject.toml` per server was rejected as a second package. |
