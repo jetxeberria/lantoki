@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from lantoki.compiler import CompileContext, CompileResult, compile_scope
+from lantoki.gitexclude import Git, relative_targets, sync_block, tracked_warnings
 from lantoki.installer import Installer, Plan, Report
 from lantoki.manifest import Manifest, scope_key
 from lantoki.profiles import Profile, load_profiles
@@ -129,6 +130,10 @@ def run_scope(
         **installer_args,
     )
     outcome.plan = installer.plan(artifacts, adopt_commands=adopt_commands)
+    git = Git(root) if scope is Scope.PROJECT else None
+    if git is not None and not apply:
+        planned = relative_targets(root, (artifact.target for artifact in artifacts if not artifact.is_command))
+        outcome.warnings.extend(tracked_warnings(git, planned))
     if apply:
         outcome.report = installer.apply(outcome.plan)
         if scope is Scope.PROJECT:
@@ -138,4 +143,9 @@ def run_scope(
                 - set(outcome.skipped_new_sources),
             )
         manifest.save(manifest_path)
+        if git is not None:
+            owned = relative_targets(
+                root, (target for target, entry in manifest.entries.items() if entry.mode != "command")
+            )
+            outcome.warnings.extend(sync_block(git, owned))
     return outcome
